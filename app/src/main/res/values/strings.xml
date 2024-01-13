@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">copy-accelerometer</string>
-    <string name="prev">Prev</string>
-    <string name="current">Current</string>
-    <string name="resultante">Resultante</string>
+    <string name="accelX">Accel X</string>
+    <string name="accelY">Accel Y</string>
+    <string name="accelZ">Accel Z</string>
+    <string name="logo">logo</string>
 </resources>
