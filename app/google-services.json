@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "219815381267",
+    "firebase_url": "https://accelerometer-c758f-default-rtdb.firebaseio.com",
+    "project_id": "accelerometer-c758f",
+    "storage_bucket": "accelerometer-c758f.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:219815381267:android:e87925b373582a0d5d32e6",
+        "android_client_info": {
+          "package_name": "com.loweffort.copy_accelerometer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBt1a0mHz_CGpN23og8coZPRjpm3J_vROQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

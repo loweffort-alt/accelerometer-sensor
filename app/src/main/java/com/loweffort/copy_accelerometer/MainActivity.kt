@@ -5,20 +5,32 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.util.Log
 import android.widget.TextView
+import android.widget.Toast
+import android.widget.ToggleButton
 import androidx.appcompat.app.AppCompatActivity
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
 import com.jjoe64.graphview.GraphView
 import com.jjoe64.graphview.Viewport
 import com.jjoe64.graphview.series.DataPoint
 import com.jjoe64.graphview.series.LineGraphSeries
+import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var txtAccelerationX: TextView
     private lateinit var txtAccelerationY: TextView
     private lateinit var txtAccelerationZ: TextView
+
+    private lateinit var recordToggle: ToggleButton
+    private var isSavingData = false
+    private var saveCount = 0
+    private val maxSaveCount = 180000 //Datos máximos en 30 min
 
     private var mSensorManager: SensorManager? = null
     private var mAccelerometer: Sensor? = null
@@ -70,46 +82,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var graphZ: GraphView
 
     private val handler = Handler()
-    private val updateGraphRunnable: Runnable = object : Runnable {
-        override fun run() {
-            // Define axis values
-            val x: Double = accelerationCurrentValueX
-            val y: Double = accelerationCurrentValueY
-            val z: Double = accelerationCurrentValueZ
 
-            // Title of each graph
-            txtAccelerationX.text = "X Acceleration = $x"
-            txtAccelerationY.text = "Y Acceleration = $y"
-            txtAccelerationZ.text = "Z Acceleration = $z"
-
-            // Customize Graph
-            seriesX.setTitle("Axis X")
-            seriesX.setColor(Color.GREEN)
-
-            seriesY.setTitle("Axis Y")
-            seriesY.setColor(Color.RED)
-
-            seriesZ.setTitle("Axis Z")
-            seriesZ.setColor(Color.BLUE)
-
-            // Add new data to each series
-            pointsPlotted++
-            seriesX.appendData(DataPoint(pointsPlotted, x), true, pointsPlotted.toInt())
-            seriesY.appendData(DataPoint(pointsPlotted, y), true, pointsPlotted.toInt())
-            seriesZ.appendData(DataPoint(pointsPlotted, z), true, pointsPlotted.toInt())
-
-            // Auto rescaling viewport
-            viewportX.setMaxX(pointsPlotted)
-            viewportX.setMinX(pointsPlotted - 200)
-            viewportY.setMaxX(pointsPlotted)
-            viewportY.setMinX(pointsPlotted - 200)
-            viewportZ.setMaxX(pointsPlotted)
-            viewportZ.setMinX(pointsPlotted - 200)
-
-            // Exec this code 100 times per second
-            handler.postDelayed(this, 10)
-        }
-    }
+    private lateinit var firebaseRef: DatabaseReference
 
     private val sensorEventListener: SensorEventListener = object : SensorEventListener {
         override fun onSensorChanged(sensorEvent: SensorEvent) {
@@ -120,6 +94,11 @@ class MainActivity : AppCompatActivity() {
             accelerationCurrentValueX = x.toDouble()
             accelerationCurrentValueY = y.toDouble()
             accelerationCurrentValueZ = z.toDouble()
+
+            // Title of each graph
+            txtAccelerationX.text = "X Acceleration = $accelerationCurrentValueX"
+            txtAccelerationY.text = "Y Acceleration = $accelerationCurrentValueY"
+            txtAccelerationZ.text = "Z Acceleration = $accelerationCurrentValueZ"
         }
 
         override fun onAccuracyChanged(sensor: Sensor, i: Int) {
@@ -127,13 +106,39 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Lógica de envío de datos
+    private val sendDataRunnable : Runnable = object : Runnable {
+        override fun run() {
+            Log.d("jdf", "funciona el runnable pero no la condicional")
+            //startTimer = System.currentTimeMillis()
+            if (isSavingData && saveCount < maxSaveCount) {
+                saveData(accelerationCurrentValueX, accelerationCurrentValueY, accelerationCurrentValueZ)
+                saveCount++
+            }
+            // Exec this code 100 times per second
+            handler.postDelayed(this, 10)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Initialization of Firebase
+        firebaseRef = FirebaseDatabase.getInstance().getReference("data")
+        firebaseRef.setValue(null)
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         txtAccelerationX = findViewById(R.id.txt_accelX)
         txtAccelerationY = findViewById(R.id.txt_accelY)
         txtAccelerationZ = findViewById(R.id.txt_accelZ)
+
+        recordToggle = findViewById(R.id.recordToggle)
+        recordToggle.setOnCheckedChangeListener { compoundButton, isChecked ->
+            isSavingData = isChecked
+            if (!isChecked) {
+                saveCount = 0
+            }
+        }
 
         mSensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         mAccelerometer = mSensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
@@ -155,16 +160,99 @@ class MainActivity : AppCompatActivity() {
         viewportZ.setScrollable(true)
         viewportZ.setXAxisBoundsManual(true)
         graphZ.addSeries(seriesZ)
+
+        // Customize Graph
+        seriesX.setTitle("Axis X")
+        seriesX.setColor(Color.GREEN)
+
+        seriesY.setTitle("Axis Y")
+        seriesY.setColor(Color.RED)
+
+        seriesZ.setTitle("Axis Z")
+        seriesZ.setColor(Color.BLUE)
+    }
+
+    private val updateGraphRunnable: Runnable = object : Runnable {
+        override fun run() {
+            // Add new data to each series
+            pointsPlotted++
+            seriesX.appendData(DataPoint(pointsPlotted, accelerationCurrentValueX), true, pointsPlotted.toInt())
+            seriesY.appendData(DataPoint(pointsPlotted, accelerationCurrentValueY), true, pointsPlotted.toInt())
+            seriesZ.appendData(DataPoint(pointsPlotted, accelerationCurrentValueZ), true, pointsPlotted.toInt())
+
+            // Auto rescaling viewport
+            viewportX.setMaxX(pointsPlotted)
+            viewportX.setMinX(pointsPlotted - 200)
+            viewportY.setMaxX(pointsPlotted)
+            viewportY.setMinX(pointsPlotted - 200)
+            viewportZ.setMaxX(pointsPlotted)
+            viewportZ.setMinX(pointsPlotted - 200)
+
+            // Exec this code 100 times per second
+            handler.postDelayed(this, 10)
+        }
+    }
+
+    fun getCurrentDate(): String {
+        val calendar = Calendar.getInstance()
+        val day = calendar.get(Calendar.DAY_OF_MONTH)
+        val month = calendar.get(Calendar.MONTH) + 1 // Los meses comienzan desde 0
+        val year = calendar.get(Calendar.YEAR)
+
+        return "$day/$month/$year"
+    }
+
+    fun getCurrentTime(): String {
+        val calendar = Calendar.getInstance()
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        val minute = calendar.get(Calendar.MINUTE)
+        val second = calendar.get(Calendar.SECOND)
+
+        return "$hour:$minute:$second"
+    }
+
+    private fun saveData(
+        accelerationCurrentValueX: Double,
+        accelerationCurrentValueY: Double,
+        accelerationCurrentValueZ: Double
+    ) {
+        val dataX = accelerationCurrentValueX.toString()
+        val dataY = accelerationCurrentValueY.toString()
+        val dataZ = accelerationCurrentValueZ.toString()
+
+        val dataId = firebaseRef.push().key!!
+        val deviceModel = Build.MODEL
+        val deviceManufacturer = Build.MANUFACTURER
+        val deviceVersion = Build.VERSION.SDK_INT.toString()
+        val packageManager = applicationContext.packageManager
+        val packageName = applicationContext.packageName
+        val packageInfo = packageManager.getPackageInfo(packageName, 0)
+        val appVersion = packageInfo.versionName
+        val currentDate = getCurrentDate()
+        val currentTime = getCurrentTime()
+        val data = AllData(dataId, dataX, dataY, dataZ, deviceModel, deviceManufacturer, deviceVersion, appVersion, currentDate, currentTime)
+
+        firebaseRef.child(dataId).setValue(data)
+            .addOnFailureListener {
+                Toast.makeText(this, "error ${it.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 
     override fun onResume() {
         super.onResume()
         mSensorManager?.registerListener(sensorEventListener, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL)
         handler.postDelayed(updateGraphRunnable, 1000)
+        handler.postDelayed(sendDataRunnable, 1000)
     }
 
     override fun onPause() {
         super.onPause()
+        mSensorManager?.unregisterListener(sensorEventListener)
+        handler.removeCallbacks(updateGraphRunnable)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
         mSensorManager?.unregisterListener(sensorEventListener)
         handler.removeCallbacks(updateGraphRunnable)
     }
