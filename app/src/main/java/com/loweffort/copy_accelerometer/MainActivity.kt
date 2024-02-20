@@ -8,7 +8,8 @@ import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
-import android.util.Log
+import android.widget.CompoundButton
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.ToggleButton
@@ -36,42 +37,13 @@ class MainActivity : AppCompatActivity() {
     private var mAccelerometer: Sensor? = null
 
     private var accelerationCurrentValueX: Double = 0.0
-
     private var accelerationCurrentValueY: Double = 0.0
-
     private var accelerationCurrentValueZ: Double = 0.0
-
     private var pointsPlotted: Double = 5.0
 
-    private val seriesX = LineGraphSeries(
-        arrayOf(
-            DataPoint(0.0, 1.0),
-            DataPoint(1.0, 5.0),
-            DataPoint(2.0, 3.0),
-            DataPoint(3.0, 2.0),
-            DataPoint(4.0, 6.0)
-        )
-    )
-
-    private val seriesY = LineGraphSeries(
-        arrayOf(
-            DataPoint(0.0, 1.0),
-            DataPoint(1.0, 5.0),
-            DataPoint(2.0, 3.0),
-            DataPoint(3.0, 2.0),
-            DataPoint(4.0, 6.0)
-        )
-    )
-
-    private val seriesZ = LineGraphSeries(
-        arrayOf(
-            DataPoint(0.0, 1.0),
-            DataPoint(1.0, 5.0),
-            DataPoint(2.0, 3.0),
-            DataPoint(3.0, 2.0),
-            DataPoint(4.0, 6.0)
-        )
-    )
+    private lateinit var seriesX: LineGraphSeries<DataPoint>
+    private lateinit var seriesY: LineGraphSeries<DataPoint>
+    private lateinit var seriesZ: LineGraphSeries<DataPoint>
 
     private lateinit var viewportX: Viewport
     private lateinit var viewportY: Viewport
@@ -109,67 +81,12 @@ class MainActivity : AppCompatActivity() {
     // Lógica de envío de datos
     private val sendDataRunnable : Runnable = object : Runnable {
         override fun run() {
-            Log.d("jdf", "funciona el runnable pero no la condicional")
-            //startTimer = System.currentTimeMillis()
             if (isSavingData && saveCount < maxSaveCount) {
                 saveData(accelerationCurrentValueX, accelerationCurrentValueY, accelerationCurrentValueZ)
                 saveCount++
             }
-            // Exec this code 100 times per second
             handler.postDelayed(this, 10)
         }
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        // Initialization of Firebase
-        firebaseRef = FirebaseDatabase.getInstance().getReference("data")
-        firebaseRef.setValue(null)
-
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        txtAccelerationX = findViewById(R.id.txt_accelX)
-        txtAccelerationY = findViewById(R.id.txt_accelY)
-        txtAccelerationZ = findViewById(R.id.txt_accelZ)
-
-        recordToggle = findViewById(R.id.recordToggle)
-        recordToggle.setOnCheckedChangeListener { compoundButton, isChecked ->
-            isSavingData = isChecked
-            if (!isChecked) {
-                saveCount = 0
-            }
-        }
-
-        mSensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
-        mAccelerometer = mSensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-
-        graphX = findViewById(R.id.graphX)
-        viewportX = graphX.viewport
-        viewportX.setScrollable(true)
-        viewportX.setXAxisBoundsManual(true)
-        graphX.addSeries(seriesX)
-
-        graphY = findViewById(R.id.graphY)
-        viewportY = graphY.viewport
-        viewportY.setScrollable(true)
-        viewportY.setXAxisBoundsManual(true)
-        graphY.addSeries(seriesY)
-
-        graphZ = findViewById(R.id.graphZ)
-        viewportZ = graphZ.viewport
-        viewportZ.setScrollable(true)
-        viewportZ.setXAxisBoundsManual(true)
-        graphZ.addSeries(seriesZ)
-
-        // Customize Graph
-        seriesX.setTitle("Axis X")
-        seriesX.setColor(Color.GREEN)
-
-        seriesY.setTitle("Axis Y")
-        seriesY.setColor(Color.RED)
-
-        seriesZ.setTitle("Axis Z")
-        seriesZ.setColor(Color.BLUE)
     }
 
     private val updateGraphRunnable: Runnable = object : Runnable {
@@ -193,7 +110,108 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun getCurrentDate(): String {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        firebaseRef = FirebaseDatabase.getInstance().getReference("data")
+        firebaseRef.setValue(null)
+
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        initializeViews()
+        initializeGraphs()
+        initializeListeners()
+    }
+
+    private fun initializeViews() {
+        txtAccelerationX = findViewById(R.id.txt_accelX)
+        txtAccelerationY = findViewById(R.id.txt_accelY)
+        txtAccelerationZ = findViewById(R.id.txt_accelZ)
+        recordToggle = findViewById(R.id.recordToggle)
+    }
+
+    private fun initializeGraphs() {
+        graphX = findViewById(R.id.graphX)
+        viewportX = graphX.viewport
+        viewportX.setScrollable(true)
+        viewportX.setXAxisBoundsManual(true)
+        seriesX = LineGraphSeries(arrayOf(
+            DataPoint(0.0, 1.0),
+            DataPoint(1.0, 5.0),
+            DataPoint(2.0, 3.0),
+            DataPoint(3.0, 2.0),
+            DataPoint(4.0, 6.0)
+        ))
+        graphX.addSeries(seriesX)
+
+        graphY = findViewById(R.id.graphY)
+        viewportY = graphY.viewport
+        viewportY.setScrollable(true)
+        viewportY.setXAxisBoundsManual(true)
+        seriesY = LineGraphSeries(arrayOf(
+            DataPoint(0.0, 1.0),
+            DataPoint(1.0, 5.0),
+            DataPoint(2.0, 3.0),
+            DataPoint(3.0, 2.0),
+            DataPoint(4.0, 6.0)
+        ))
+        graphY.addSeries(seriesY)
+
+        graphZ = findViewById(R.id.graphZ)
+        viewportZ = graphZ.viewport
+        viewportZ.setScrollable(true)
+        viewportZ.setXAxisBoundsManual(true)
+        seriesZ = LineGraphSeries(arrayOf(
+            DataPoint(0.0, 1.0),
+            DataPoint(1.0, 5.0),
+            DataPoint(2.0, 3.0),
+            DataPoint(3.0, 2.0),
+            DataPoint(4.0, 6.0)
+        ))
+        graphZ.addSeries(seriesZ)
+
+        // Customize Graph
+        seriesX.setTitle("Axis X")
+        seriesX.setColor(Color.GREEN)
+
+        seriesY.setTitle("Axis Y")
+        seriesY.setColor(Color.RED)
+
+        seriesZ.setTitle("Axis Z")
+        seriesZ.setColor(Color.BLUE)
+    }
+
+    private fun initializeListeners() {
+        recordToggle.setOnCheckedChangeListener { _, isChecked ->
+            isSavingData = isChecked
+            if (!isChecked) {
+                saveCount = 0
+            }
+        }
+    }
+
+    private fun registerSensor() {
+        mSensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
+        mAccelerometer = mSensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        mSensorManager?.registerListener(sensorEventListener, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL)
+    }
+
+    private fun unregisterSensor() {
+        mSensorManager?.unregisterListener(sensorEventListener)
+    }
+
+    private fun startUpdateGraphRunnable() {
+        handler.postDelayed(updateGraphRunnable, 1000)
+    }
+
+    private fun stopUpdateGraphRunnable() {
+        handler.removeCallbacks(updateGraphRunnable)
+    }
+
+    private fun startSendDataRunnable() {
+        handler.postDelayed(sendDataRunnable, 1000)
+    }
+
+    private fun getCurrentDate(): String {
         val calendar = Calendar.getInstance()
         val day = calendar.get(Calendar.DAY_OF_MONTH)
         val month = calendar.get(Calendar.MONTH) + 1 // Los meses comienzan desde 0
@@ -202,7 +220,7 @@ class MainActivity : AppCompatActivity() {
         return "$day/$month/$year"
     }
 
-    fun getCurrentTime(): String {
+    private fun getCurrentTime(): String {
         val calendar = Calendar.getInstance()
         val hour = calendar.get(Calendar.HOUR_OF_DAY)
         val minute = calendar.get(Calendar.MINUTE)
@@ -240,20 +258,20 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        mSensorManager?.registerListener(sensorEventListener, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL)
-        handler.postDelayed(updateGraphRunnable, 1000)
-        handler.postDelayed(sendDataRunnable, 1000)
+        registerSensor()
+        startUpdateGraphRunnable()
+        startSendDataRunnable()
     }
 
     override fun onPause() {
         super.onPause()
-        mSensorManager?.unregisterListener(sensorEventListener)
-        handler.removeCallbacks(updateGraphRunnable)
+        unregisterSensor()
+        stopUpdateGraphRunnable()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        mSensorManager?.unregisterListener(sensorEventListener)
-        handler.removeCallbacks(updateGraphRunnable)
+        unregisterSensor()
+        stopUpdateGraphRunnable()
     }
 }
