@@ -27,6 +27,9 @@ import com.jjoe64.graphview.Viewport
 import com.jjoe64.graphview.series.DataPoint
 import com.jjoe64.graphview.series.LineGraphSeries
 import java.util.Calendar
+import org.greenrobot.eventbus.EventBus
+import org.greenrobot.eventbus.Subscribe
+import org.greenrobot.eventbus.ThreadMode
 
 class MainActivity : AppCompatActivity() {
 
@@ -67,7 +70,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var recordToggle: ToggleButton
     private var isSavingData = false
     private var saveCount = 0
-    private val maxSaveCount = 500 //Datos máximos en 30 min
+    private val maxSaveCount = 500 //Máx datos grabados en 5 min: 30000
 
     private var mSensorManager: SensorManager? = null
     private var mAccelerometer: Sensor? = null
@@ -130,7 +133,7 @@ class MainActivity : AppCompatActivity() {
 
     private val updateGraphRunnable: Runnable = object : Runnable {
         override fun run() {
-            // Add new data to each series
+            // Add one new data to each series
             pointsPlotted++
             seriesX.appendData(DataPoint(pointsPlotted, accelerationCurrentValueX), true, pointsPlotted.toInt())
             seriesY.appendData(DataPoint(pointsPlotted, accelerationCurrentValueY), true, pointsPlotted.toInt())
@@ -156,11 +159,21 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Registra esta clase como un suscriptor de EventBus
+        EventBus.getDefault().register(this)
+
         askNotificationPermission()
         notifications()
         initializeViews()
         initializeGraphs()
         initializeListeners()
+    }
+
+    // Método para manejar el evento de recepción de notificación
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    fun onNotificationReceived(event: NotificationReceivedEvent) {
+        // Cambiar el estado del recordToggle
+        recordToggle.isChecked = true
     }
 
     private fun notifications() {
@@ -287,8 +300,9 @@ class MainActivity : AppCompatActivity() {
         val hour = calendar.get(Calendar.HOUR_OF_DAY)
         val minute = calendar.get(Calendar.MINUTE)
         val second = calendar.get(Calendar.SECOND)
+        val milisecond = calendar.get(Calendar.MILLISECOND)
 
-        return "$hour:$minute:$second"
+        return "$hour:$minute:$second.$milisecond"
     }
 
     private fun saveData(
@@ -332,6 +346,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        // Desregistra esta clase como suscriptor de EventBus
+        EventBus.getDefault().unregister(this)
         super.onDestroy()
         unregisterSensor()
         stopUpdateGraphRunnable()

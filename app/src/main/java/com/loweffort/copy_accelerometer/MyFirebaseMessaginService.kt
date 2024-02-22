@@ -4,6 +4,7 @@ import android.content.ContentValues.TAG
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import org.greenrobot.eventbus.EventBus
 
 class MyFirebaseMessaginService: FirebaseMessagingService() {
 
@@ -35,6 +36,8 @@ class MyFirebaseMessaginService: FirebaseMessagingService() {
         remoteMessage.notification?.let {
             Log.d(TAG, "Message Notification Body: ${it.body}")
         }
+
+        EventBus.getDefault().post(NotificationReceivedEvent())
     }
 
 }
