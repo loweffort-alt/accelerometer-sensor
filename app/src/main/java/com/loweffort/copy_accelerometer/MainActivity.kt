@@ -1,5 +1,6 @@
 package com.loweffort.copy_accelerometer
 
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -7,15 +8,20 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
+import android.Manifest
+import android.content.ContentValues.TAG
 import android.os.Handler
-import android.widget.CompoundButton
-import android.widget.Switch
+import android.util.Log
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.ToggleButton
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.messaging.FirebaseMessaging
 import com.jjoe64.graphview.GraphView
 import com.jjoe64.graphview.Viewport
 import com.jjoe64.graphview.series.DataPoint
@@ -24,6 +30,36 @@ import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
 
+    // Config to show notifications:
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // FCM SDK (and your app) can post notifications.
+        } else {
+            // TODO: Inform user that that your app will not show notifications.
+        }
+    }
+
+    private fun askNotificationPermission() {
+        // This is only necessary for API level >= 33 (TIRAMISU)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                // FCM SDK (and your app) can post notifications.
+            } else if (shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)) {
+                // TODO: display an educational UI explaining to the user the features that will be enabled
+                //       by them granting the POST_NOTIFICATION permission. This UI should provide the user
+                //       "OK" and "No thanks" buttons. If the user selects "OK," directly request the permission.
+                //       If the user selects "No thanks," allow the user to continue without notifications.
+            } else {
+                // Directly ask for the permission
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
     private lateinit var txtAccelerationX: TextView
     private lateinit var txtAccelerationY: TextView
     private lateinit var txtAccelerationZ: TextView
@@ -31,7 +67,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var recordToggle: ToggleButton
     private var isSavingData = false
     private var saveCount = 0
-    private val maxSaveCount = 180000 //Datos máximos en 30 min
+    private val maxSaveCount = 500 //Datos máximos en 30 min
 
     private var mSensorManager: SensorManager? = null
     private var mAccelerometer: Sensor? = null
@@ -68,9 +104,12 @@ class MainActivity : AppCompatActivity() {
             accelerationCurrentValueZ = z.toDouble()
 
             // Title of each graph
-            txtAccelerationX.text = "X Acceleration = $accelerationCurrentValueX"
-            txtAccelerationY.text = "Y Acceleration = $accelerationCurrentValueY"
-            txtAccelerationZ.text = "Z Acceleration = $accelerationCurrentValueZ"
+            val accelerationXText = resources.getString(R.string.accelX, accelerationCurrentValueX)
+            val accelerationYText = resources.getString(R.string.accelY, accelerationCurrentValueY)
+            val accelerationZText = resources.getString(R.string.accelZ, accelerationCurrentValueZ)
+            txtAccelerationX.text = accelerationXText
+            txtAccelerationY.text = accelerationYText
+            txtAccelerationZ.text = accelerationZText
         }
 
         override fun onAccuracyChanged(sensor: Sensor, i: Int) {
@@ -85,7 +124,7 @@ class MainActivity : AppCompatActivity() {
                 saveData(accelerationCurrentValueX, accelerationCurrentValueY, accelerationCurrentValueZ)
                 saveCount++
             }
-            handler.postDelayed(this, 10)
+            handler.postDelayed(this, 0)
         }
     }
 
@@ -106,7 +145,7 @@ class MainActivity : AppCompatActivity() {
             viewportZ.setMinX(pointsPlotted - 200)
 
             // Exec this code 100 times per second
-            handler.postDelayed(this, 10)
+            handler.postDelayed(this, 0)
         }
     }
 
@@ -117,9 +156,28 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        askNotificationPermission()
+        notifications()
         initializeViews()
         initializeGraphs()
         initializeListeners()
+    }
+
+    private fun notifications() {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w(TAG, "Fetching FCM registration token failes", task.exception)
+                return@OnCompleteListener
+            }
+
+            // Get new FCM registration token
+            val token = task.result
+
+            // Log and toast
+            val msg = getString(R.string.msg_token_fmt, token)
+            Log.d(TAG, msg)
+            Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
+        })
     }
 
     private fun initializeViews() {
@@ -132,8 +190,8 @@ class MainActivity : AppCompatActivity() {
     private fun initializeGraphs() {
         graphX = findViewById(R.id.graphX)
         viewportX = graphX.viewport
-        viewportX.setScrollable(true)
-        viewportX.setXAxisBoundsManual(true)
+        viewportX.isScrollable = true
+        viewportX.isXAxisBoundsManual = true
         seriesX = LineGraphSeries(arrayOf(
             DataPoint(0.0, 1.0),
             DataPoint(1.0, 5.0),
@@ -145,8 +203,8 @@ class MainActivity : AppCompatActivity() {
 
         graphY = findViewById(R.id.graphY)
         viewportY = graphY.viewport
-        viewportY.setScrollable(true)
-        viewportY.setXAxisBoundsManual(true)
+        viewportY.isScrollable = true
+        viewportY.isXAxisBoundsManual = true
         seriesY = LineGraphSeries(arrayOf(
             DataPoint(0.0, 1.0),
             DataPoint(1.0, 5.0),
@@ -158,8 +216,8 @@ class MainActivity : AppCompatActivity() {
 
         graphZ = findViewById(R.id.graphZ)
         viewportZ = graphZ.viewport
-        viewportZ.setScrollable(true)
-        viewportZ.setXAxisBoundsManual(true)
+        viewportZ.isScrollable = true
+        viewportZ.isXAxisBoundsManual = true
         seriesZ = LineGraphSeries(arrayOf(
             DataPoint(0.0, 1.0),
             DataPoint(1.0, 5.0),
@@ -170,14 +228,14 @@ class MainActivity : AppCompatActivity() {
         graphZ.addSeries(seriesZ)
 
         // Customize Graph
-        seriesX.setTitle("Axis X")
-        seriesX.setColor(Color.GREEN)
+        seriesX.title = "Axis X"
+        seriesX.color = Color.GREEN
 
-        seriesY.setTitle("Axis Y")
-        seriesY.setColor(Color.RED)
+        seriesY.title = "Axis Y"
+        seriesY.color = Color.RED
 
-        seriesZ.setTitle("Axis Z")
-        seriesZ.setColor(Color.BLUE)
+        seriesZ.title = "Axis Z"
+        seriesZ.color = Color.BLUE
     }
 
     private fun initializeListeners() {
@@ -200,7 +258,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startUpdateGraphRunnable() {
-        handler.postDelayed(updateGraphRunnable, 1000)
+        handler.postDelayed(updateGraphRunnable, 0)
     }
 
     private fun stopUpdateGraphRunnable() {
@@ -208,7 +266,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startSendDataRunnable() {
-        handler.postDelayed(sendDataRunnable, 1000)
+        handler.postDelayed(sendDataRunnable, 0)
+    }
+
+    private fun stopSendDataRunnable() {
+        handler.removeCallbacks(sendDataRunnable)
     }
 
     private fun getCurrentDate(): String {
@@ -273,5 +335,6 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         unregisterSensor()
         stopUpdateGraphRunnable()
+        stopSendDataRunnable()
     }
 }
