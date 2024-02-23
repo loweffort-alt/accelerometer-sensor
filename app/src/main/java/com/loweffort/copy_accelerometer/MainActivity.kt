@@ -10,12 +10,13 @@ import android.os.Build
 import android.os.Bundle
 import android.Manifest
 import android.content.ContentValues.TAG
+import android.graphics.PorterDuff
 import android.os.Handler
 import android.util.Log
 import android.widget.Button
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
-import android.widget.ToggleButton
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -72,6 +73,7 @@ class MainActivity : AppCompatActivity() {
     private var saveCount = 0
     private lateinit var btnSendData: Button
     private lateinit var btnDeleteData: Button
+    private lateinit var progressBarSendData: ProgressBar
     private val maxSaveCount = 500 //Máx datos grabados en 5 min: 30000
 
     //Sensors
@@ -123,6 +125,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val sendDataRunnable: Runnable = object : Runnable {
+        override fun run() {
+            if (saveCount < maxSaveCount) {
+                saveData(accelerationCurrentValueX, accelerationCurrentValueY, accelerationCurrentValueZ)
+                saveCount++
+                progressBarSendData.progress = saveCount
+                if (progressBarSendData.progress == maxSaveCount) {
+                    // Cambia el color de la barra de progreso cuando esté completa
+                    progressBarSendData.progressDrawable.setColorFilter(
+                        ContextCompat.getColor(this@MainActivity, R.color.verde), // Cambia "verde" al color deseado
+                        PorterDuff.Mode.SRC_IN
+                    )
+                }
+            }
+            handler.postDelayed(this, 10)
+        }
+    }
+
     /*
     private val updateGraphRunnable: Runnable = object : Runnable {
         override fun run() {
@@ -162,17 +182,8 @@ class MainActivity : AppCompatActivity() {
     // Método para manejar el evento de recepción de notificación
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onNotificationReceived(event: NotificationReceivedEvent) {
-        Log.d("Noti", "Notificación recibida!")
+        Log.d("jhnf", "Notificación recibida!")
         // Esto envía los datos cuando una notificación es recibida
-        val sendDataRunnable : Runnable = object : Runnable {
-            override fun run() {
-                if (saveCount < maxSaveCount) {
-                    saveData(accelerationCurrentValueX, accelerationCurrentValueY, accelerationCurrentValueZ)
-                    saveCount++
-                }
-                handler.postDelayed(this, 10)
-            }
-        }
         handler.postDelayed(sendDataRunnable, 0)
     }
 
@@ -193,30 +204,24 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-
     private fun initializeViews() {
         txtAccelerationX = findViewById(R.id.txt_accelX)
         txtAccelerationY = findViewById(R.id.txt_accelY)
         txtAccelerationZ = findViewById(R.id.txt_accelZ)
         btnSendData = findViewById(R.id.btnSendData)
         btnDeleteData = findViewById(R.id.btnDeleteData)
+        progressBarSendData = findViewById(R.id.progressBarSendData)
+        progressBarSendData.max = maxSaveCount
+        progressBarSendData.progress = 0
 
         btnSendData.setOnClickListener{
             saveCount = 0
             // Esto envía los datos cuando le das click al boton de enviar
-            val sendDataRunnable : Runnable = object : Runnable {
-                override fun run() {
-                    if (saveCount < maxSaveCount) {
-                        saveData(accelerationCurrentValueX, accelerationCurrentValueY, accelerationCurrentValueZ)
-                        saveCount++
-                    }
-                    handler.postDelayed(this, 10)
-                }
-            }
             handler.postDelayed(sendDataRunnable, 0)
             saveCount = 0
         }
         btnDeleteData.setOnClickListener{
+            progressBarSendData.progress = 0
             firebaseRef.setValue(null)
         }
     }
