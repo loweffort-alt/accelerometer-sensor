@@ -12,6 +12,7 @@ import android.Manifest
 import android.content.ContentValues.TAG
 import android.os.Handler
 import android.util.Log
+import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.ToggleButton
@@ -67,11 +68,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var txtAccelerationY: TextView
     private lateinit var txtAccelerationZ: TextView
 
-    private lateinit var recordToggle: ToggleButton
-    private var isSavingData = false
+    //Buttons
     private var saveCount = 0
+    private lateinit var btnSendData: Button
+    private lateinit var btnDeleteData: Button
     private val maxSaveCount = 500 //Máx datos grabados en 5 min: 30000
 
+    //Sensors
     private var mSensorManager: SensorManager? = null
     private var mAccelerometer: Sensor? = null
 
@@ -94,7 +97,7 @@ class MainActivity : AppCompatActivity() {
 
     private val handler = Handler()
 
-    private lateinit var firebaseRef: DatabaseReference
+    private var firebaseRef: DatabaseReference = FirebaseDatabase.getInstance().getReference("data")
 
     private val sensorEventListener: SensorEventListener = object : SensorEventListener {
         override fun onSensorChanged(sensorEvent: SensorEvent) {
@@ -120,17 +123,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Lógica de envío de datos
-    private val sendDataRunnable : Runnable = object : Runnable {
-        override fun run() {
-            if (isSavingData && saveCount < maxSaveCount) {
-                saveData(accelerationCurrentValueX, accelerationCurrentValueY, accelerationCurrentValueZ)
-                saveCount++
-            }
-            handler.postDelayed(this, 10)
-        }
-    }
-
+    /*
     private val updateGraphRunnable: Runnable = object : Runnable {
         override fun run() {
             // Add one new data to each series
@@ -151,11 +144,9 @@ class MainActivity : AppCompatActivity() {
             handler.postDelayed(this, 10)
         }
     }
+     */
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        firebaseRef = FirebaseDatabase.getInstance().getReference("data")
-        firebaseRef.setValue(null)
-
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
@@ -166,14 +157,23 @@ class MainActivity : AppCompatActivity() {
         notifications()
         initializeViews()
         initializeGraphs()
-        initializeListeners()
     }
 
     // Método para manejar el evento de recepción de notificación
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onNotificationReceived(event: NotificationReceivedEvent) {
-        // Cambiar el estado del recordToggle
-        recordToggle.isChecked = true
+        Log.d("Noti", "Notificación recibida!")
+        // Esto envía los datos cuando una notificación es recibida
+        val sendDataRunnable : Runnable = object : Runnable {
+            override fun run() {
+                if (saveCount < maxSaveCount) {
+                    saveData(accelerationCurrentValueX, accelerationCurrentValueY, accelerationCurrentValueZ)
+                    saveCount++
+                }
+                handler.postDelayed(this, 10)
+            }
+        }
+        handler.postDelayed(sendDataRunnable, 0)
     }
 
     private fun notifications() {
@@ -193,11 +193,32 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+
     private fun initializeViews() {
         txtAccelerationX = findViewById(R.id.txt_accelX)
         txtAccelerationY = findViewById(R.id.txt_accelY)
         txtAccelerationZ = findViewById(R.id.txt_accelZ)
-        recordToggle = findViewById(R.id.recordToggle)
+        btnSendData = findViewById(R.id.btnSendData)
+        btnDeleteData = findViewById(R.id.btnDeleteData)
+
+        btnSendData.setOnClickListener{
+            saveCount = 0
+            // Esto envía los datos cuando le das click al boton de enviar
+            val sendDataRunnable : Runnable = object : Runnable {
+                override fun run() {
+                    if (saveCount < maxSaveCount) {
+                        saveData(accelerationCurrentValueX, accelerationCurrentValueY, accelerationCurrentValueZ)
+                        saveCount++
+                    }
+                    handler.postDelayed(this, 10)
+                }
+            }
+            handler.postDelayed(sendDataRunnable, 0)
+            saveCount = 0
+        }
+        btnDeleteData.setOnClickListener{
+            firebaseRef.setValue(null)
+        }
     }
 
     private fun initializeGraphs() {
@@ -251,15 +272,6 @@ class MainActivity : AppCompatActivity() {
         seriesZ.color = Color.BLUE
     }
 
-    private fun initializeListeners() {
-        recordToggle.setOnCheckedChangeListener { _, isChecked ->
-            isSavingData = isChecked
-            if (!isChecked) {
-                saveCount = 0
-            }
-        }
-    }
-
     private fun registerSensor() {
         mSensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         mAccelerometer = mSensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
@@ -270,6 +282,7 @@ class MainActivity : AppCompatActivity() {
         mSensorManager?.unregisterListener(sensorEventListener)
     }
 
+    /*
     private fun startUpdateGraphRunnable() {
         handler.postDelayed(updateGraphRunnable, 0)
     }
@@ -277,14 +290,7 @@ class MainActivity : AppCompatActivity() {
     private fun stopUpdateGraphRunnable() {
         handler.removeCallbacks(updateGraphRunnable)
     }
-
-    private fun startSendDataRunnable() {
-        handler.postDelayed(sendDataRunnable, 0)
-    }
-
-    private fun stopSendDataRunnable() {
-        handler.removeCallbacks(sendDataRunnable)
-    }
+     */
 
     private fun getCurrentDate(): String {
         val calendar = Calendar.getInstance()
@@ -358,14 +364,13 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         registerSensor()
-        startUpdateGraphRunnable()
-        startSendDataRunnable()
+        //startUpdateGraphRunnable()
     }
 
     override fun onPause() {
         super.onPause()
         unregisterSensor()
-        stopUpdateGraphRunnable()
+        //stopUpdateGraphRunnable()
     }
 
     override fun onDestroy() {
@@ -373,7 +378,6 @@ class MainActivity : AppCompatActivity() {
         EventBus.getDefault().unregister(this)
         super.onDestroy()
         unregisterSensor()
-        stopUpdateGraphRunnable()
-        stopSendDataRunnable()
+        //stopUpdateGraphRunnable()
     }
 }
