@@ -1,16 +1,16 @@
 package com.loweffort.copy_accelerometer
 
+import android.Manifest
+import android.content.ContentValues.TAG
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.PorterDuff
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
-import android.Manifest
-import android.content.ContentValues.TAG
-import android.graphics.PorterDuff
 import android.os.Handler
 import android.util.Log
 import android.widget.Button
@@ -24,16 +24,18 @@ import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.messaging.FirebaseMessaging
+import com.jjoe64.graphview.DefaultLabelFormatter
 import com.jjoe64.graphview.GraphView
 import com.jjoe64.graphview.Viewport
 import com.jjoe64.graphview.series.DataPoint
 import com.jjoe64.graphview.series.LineGraphSeries
-import java.util.Calendar
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
+import java.text.SimpleDateFormat
+import java.util.Calendar
 
-class MainActivity : AppCompatActivity() {
+class MainActivity<Date> : AppCompatActivity() {
 
     // Config to show notifications:
     private val requestPermissionLauncher = registerForActivityResult(
@@ -143,6 +145,47 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun getCurrentDate(): String {
+        val calendar = Calendar.getInstance()
+        val day = calendar.get(Calendar.DAY_OF_MONTH)
+        val month = calendar.get(Calendar.MONTH) + 1 // Los meses comienzan desde 0
+        val year = calendar.get(Calendar.YEAR)
+
+        return "$day/$month/$year"
+    }
+
+    private fun getCurrentTime(): String {
+        val calendar = Calendar.getInstance()
+        var hour = calendar.get(Calendar.HOUR_OF_DAY)
+        var minute = calendar.get(Calendar.MINUTE)
+        var second = calendar.get(Calendar.SECOND)
+        var milisecond = calendar.get(Calendar.MILLISECOND)
+
+        if (hour < 10) {
+            hour = "0$hour".toInt()
+        } else if (minute < 10){
+            minute = "0$minute".toInt()
+        } else if (second < 10) {
+            second = "0$second".toInt()
+        } else if (milisecond < 100) {
+            milisecond = "0$milisecond".toInt()
+        }
+
+        return "$hour:$minute:$second.$milisecond"
+    }
+
+    private fun getDataTimeTest(): String {
+        val calendar = Calendar.getInstance()
+        var second = calendar.get(Calendar.SECOND).toString()
+        var milisecond = calendar.get(Calendar.MILLISECOND).toString()
+
+        if (second.toInt() < 10) {
+            second = "0$second"
+        }
+
+        return "$second,$milisecond"
+    }
+
     /*
     private val updateGraphRunnable: Runnable = object : Runnable {
         override fun run() {
@@ -227,44 +270,46 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initializeGraphs() {
+        val calendar = Calendar.getInstance()
+        val timeFormat = SimpleDateFormat("HH:mm:ss")
+        val currentTime = timeFormat.format(calendar.time)
+        val customXAxisLabelFormatter = CustomXAxisLabelFormatter()
+
         graphX = findViewById(R.id.graphX)
         viewportX = graphX.viewport
-        viewportX.isScrollable = true
-        viewportX.isXAxisBoundsManual = true
         seriesX = LineGraphSeries(arrayOf(
-            DataPoint(0.0, 1.0),
-            DataPoint(1.0, 5.0),
-            DataPoint(2.0, 3.0),
-            DataPoint(3.0, 2.0),
-            DataPoint(4.0, 6.0)
+            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 1.0),
+            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 5.0),
+            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 3.0)
         ))
         graphX.addSeries(seriesX)
+        graphX.gridLabelRenderer.labelFormatter = customXAxisLabelFormatter
+        graphX.gridLabelRenderer.numHorizontalLabels = 3 // solo 4 debido al espacio
+        graphX.viewport.isXAxisBoundsManual = false
 
         graphY = findViewById(R.id.graphY)
         viewportY = graphY.viewport
-        viewportY.isScrollable = true
-        viewportY.isXAxisBoundsManual = true
         seriesY = LineGraphSeries(arrayOf(
-            DataPoint(0.0, 1.0),
-            DataPoint(1.0, 5.0),
-            DataPoint(2.0, 3.0),
-            DataPoint(3.0, 2.0),
-            DataPoint(4.0, 6.0)
+            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 1.0),
+            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 5.0),
+            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 3.0)
         ))
         graphY.addSeries(seriesY)
+        graphY.gridLabelRenderer.labelFormatter = customXAxisLabelFormatter
+        graphY.gridLabelRenderer.numHorizontalLabels = 3 // solo 4 debido al espacio
+        graphY.viewport.isXAxisBoundsManual = false
 
         graphZ = findViewById(R.id.graphZ)
         viewportZ = graphZ.viewport
-        viewportZ.isScrollable = true
-        viewportZ.isXAxisBoundsManual = true
         seriesZ = LineGraphSeries(arrayOf(
-            DataPoint(0.0, 1.0),
-            DataPoint(1.0, 5.0),
-            DataPoint(2.0, 3.0),
-            DataPoint(3.0, 2.0),
-            DataPoint(4.0, 6.0)
+            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 1.0),
+            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 5.0),
+            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 3.0)
         ))
         graphZ.addSeries(seriesZ)
+        graphZ.gridLabelRenderer.labelFormatter = customXAxisLabelFormatter
+        graphZ.gridLabelRenderer.numHorizontalLabels = 3 // solo 4 debido al espacio
+        graphZ.viewport.isXAxisBoundsManual = false
 
         // Customize Graph
         seriesX.title = "Axis X"
@@ -296,47 +341,6 @@ class MainActivity : AppCompatActivity() {
         handler.removeCallbacks(updateGraphRunnable)
     }
      */
-
-    private fun getCurrentDate(): String {
-        val calendar = Calendar.getInstance()
-        val day = calendar.get(Calendar.DAY_OF_MONTH)
-        val month = calendar.get(Calendar.MONTH) + 1 // Los meses comienzan desde 0
-        val year = calendar.get(Calendar.YEAR)
-
-        return "$day/$month/$year"
-    }
-
-    private fun getCurrentTime(): String {
-        val calendar = Calendar.getInstance()
-        var hour = calendar.get(Calendar.HOUR_OF_DAY)
-        var minute = calendar.get(Calendar.MINUTE)
-        var second = calendar.get(Calendar.SECOND)
-        var milisecond = calendar.get(Calendar.MILLISECOND)
-
-        if (hour < 10) {
-            hour = "0$hour".toInt()
-        } else if (minute < 10){
-            minute = "0$minute".toInt()
-        } else if (second < 10) {
-            second = "0$second".toInt()
-        } else if (milisecond < 100) {
-            milisecond = "0$milisecond".toInt()
-        }
-
-        return "$hour:$minute:$second.$milisecond"
-    }
-
-    private fun getDataTimeTest(): String {
-        val calendar = Calendar.getInstance()
-        var second = calendar.get(Calendar.SECOND).toString()
-        var milisecond = calendar.get(Calendar.MILLISECOND).toString()
-
-        if (second.toInt() < 10) {
-            second = "0$second"
-        }
-
-        return "$second,$milisecond"
-    }
 
     private fun saveData(
         accelerationCurrentValueX: Double,
