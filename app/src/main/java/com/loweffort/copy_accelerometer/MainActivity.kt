@@ -127,7 +127,7 @@ class MainActivity : AppCompatActivity() {
                 saveData(accelerationCurrentValueX, accelerationCurrentValueY, accelerationCurrentValueZ)
                 saveCount++
             }
-            handler.postDelayed(this, 0)
+            handler.postDelayed(this, 10)
         }
     }
 
@@ -148,7 +148,7 @@ class MainActivity : AppCompatActivity() {
             viewportZ.setMinX(pointsPlotted - 200)
 
             // Exec this code 100 times per second
-            handler.postDelayed(this, 0)
+            handler.postDelayed(this, 10)
         }
     }
 
@@ -263,7 +263,7 @@ class MainActivity : AppCompatActivity() {
     private fun registerSensor() {
         mSensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         mAccelerometer = mSensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        mSensorManager?.registerListener(sensorEventListener, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL)
+        mSensorManager?.registerListener(sensorEventListener, mAccelerometer, SensorManager.SENSOR_DELAY_FASTEST)
     }
 
     private fun unregisterSensor() {
@@ -297,12 +297,34 @@ class MainActivity : AppCompatActivity() {
 
     private fun getCurrentTime(): String {
         val calendar = Calendar.getInstance()
-        val hour = calendar.get(Calendar.HOUR_OF_DAY)
-        val minute = calendar.get(Calendar.MINUTE)
-        val second = calendar.get(Calendar.SECOND)
-        val milisecond = calendar.get(Calendar.MILLISECOND)
+        var hour = calendar.get(Calendar.HOUR_OF_DAY)
+        var minute = calendar.get(Calendar.MINUTE)
+        var second = calendar.get(Calendar.SECOND)
+        var milisecond = calendar.get(Calendar.MILLISECOND)
+
+        if (hour < 10) {
+            hour = "0$hour".toInt()
+        } else if (minute < 10){
+            minute = "0$minute".toInt()
+        } else if (second < 10) {
+            second = "0$second".toInt()
+        } else if (milisecond < 100) {
+            milisecond = "0$milisecond".toInt()
+        }
 
         return "$hour:$minute:$second.$milisecond"
+    }
+
+    private fun getDataTimeTest(): String {
+        val calendar = Calendar.getInstance()
+        var second = calendar.get(Calendar.SECOND).toString()
+        var milisecond = calendar.get(Calendar.MILLISECOND).toString()
+
+        if (second.toInt() < 10) {
+            second = "0$second"
+        }
+
+        return "$second,$milisecond"
     }
 
     private fun saveData(
@@ -324,7 +346,8 @@ class MainActivity : AppCompatActivity() {
         val appVersion = packageInfo.versionName
         val currentDate = getCurrentDate()
         val currentTime = getCurrentTime()
-        val data = AllData(dataId, dataX, dataY, dataZ, deviceModel, deviceManufacturer, deviceVersion, appVersion, currentDate, currentTime)
+        val getTimeTest = getDataTimeTest()
+        val data = AllData(dataId, dataX, dataY, dataZ, deviceModel, deviceManufacturer, deviceVersion, appVersion, currentDate, currentTime, getTimeTest)
 
         firebaseRef.child(dataId).setValue(data)
             .addOnFailureListener {
