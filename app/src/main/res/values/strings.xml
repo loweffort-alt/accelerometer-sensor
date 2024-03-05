@@ -1,7 +1,8 @@
 <resources>
-    <string name="app_name">copy-accelerometer</string>
-    <string name="accelX">Accel X</string>
-    <string name="accelY">Accel Y</string>
-    <string name="accelZ">Accel Z</string>
+    <string name="app_name">Accelerometer</string>
+    <string name="accelX">X Acceleration = %.2f</string>
+    <string name="accelY">Y Acceleration = %.2f</string>
+    <string name="accelZ">Z Acceleration = %.2f</string>
     <string name="logo">logo</string>
+    <string name="msg_token_fmt">%1$s</string>
 </resources>

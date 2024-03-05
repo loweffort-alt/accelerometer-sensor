@@ -1,4 +1,4 @@
-package com.loweffort.copy_accelerometer
+package com.loweffort.quakesense
 
 data class AllData(
     val id : String? = null,
@@ -10,5 +10,6 @@ data class AllData(
     val deviceVersion : String? = null,
     val appVersion : String? = null,
     val currentDate : String? = null,
-    val currentTime : String? = null
+    val currentTime : String? = null,
+    val getTimeTest : String? = null
 )
