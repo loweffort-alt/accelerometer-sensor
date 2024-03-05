@@ -1,4 +1,4 @@
-package com.loweffort.copy_accelerometer
+package com.loweffort.quakesense
 
 import android.content.ContentValues.TAG
 import android.util.Log

@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.loweffort.copy_accelerometer"
+    namespace = "com.loweffort.quakesense"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.loweffort.copy_accelerometer"
+        applicationId = "com.loweffort.quakesense"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

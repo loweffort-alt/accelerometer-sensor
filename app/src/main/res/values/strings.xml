@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">copy-accelerometer</string>
+    <string name="app_name">Accelerometer</string>
     <string name="accelX">X Acceleration = %.2f</string>
     <string name="accelY">Y Acceleration = %.2f</string>
     <string name="accelZ">Z Acceleration = %.2f</string>

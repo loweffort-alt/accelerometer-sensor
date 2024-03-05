@@ -1,4 +1,4 @@
-package com.loweffort.copy_accelerometer
+package com.loweffort.quakesense
 
 data class AllData(
     val id : String? = null,

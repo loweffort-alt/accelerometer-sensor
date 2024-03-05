@@ -1,4 +1,4 @@
-package com.loweffort.copy_accelerometer
+package com.loweffort.quakesense
 
 import android.Manifest
 import android.content.ContentValues.TAG
@@ -24,7 +24,6 @@ import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.messaging.FirebaseMessaging
-import com.jjoe64.graphview.DefaultLabelFormatter
 import com.jjoe64.graphview.GraphView
 import com.jjoe64.graphview.Viewport
 import com.jjoe64.graphview.series.DataPoint
@@ -32,10 +31,9 @@ import com.jjoe64.graphview.series.LineGraphSeries
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
-import java.text.SimpleDateFormat
 import java.util.Calendar
 
-class MainActivity<Date> : AppCompatActivity() {
+class MainActivity : AppCompatActivity() {
 
     // Config to show notifications:
     private val requestPermissionLauncher = registerForActivityResult(
@@ -90,6 +88,7 @@ class MainActivity<Date> : AppCompatActivity() {
     private lateinit var seriesX: LineGraphSeries<DataPoint>
     private lateinit var seriesY: LineGraphSeries<DataPoint>
     private lateinit var seriesZ: LineGraphSeries<DataPoint>
+    private val maxDataPoints = 100
 
     private lateinit var viewportX: Viewport
     private lateinit var viewportY: Viewport
@@ -107,11 +106,11 @@ class MainActivity<Date> : AppCompatActivity() {
         override fun onSensorChanged(sensorEvent: SensorEvent) {
             val x: Float = sensorEvent.values[0]
             val y: Float = sensorEvent.values[1]
-            val z: Float = sensorEvent.values[2]
+            val z: Float = sensorEvent.values[2] - 9.81f
 
-            accelerationCurrentValueX = x.toDouble()
-            accelerationCurrentValueY = y.toDouble()
-            accelerationCurrentValueZ = z.toDouble()
+            accelerationCurrentValueX = String.format("%.5f", x).toDouble()
+            accelerationCurrentValueY = String.format("%.5f", y).toDouble()
+            accelerationCurrentValueZ = String.format("%.5f", z).toDouble()
 
             // Title of each graph
             val accelerationXText = resources.getString(R.string.accelX, accelerationCurrentValueX)
@@ -141,10 +140,10 @@ class MainActivity<Date> : AppCompatActivity() {
                     )
                 }
             }
-            handler.postDelayed(this, 10)
+            // Esto controla la velocidad de muestreo
+            handler.postDelayed(this, 20)
         }
     }
-
     private fun getCurrentDate(): String {
         val calendar = Calendar.getInstance()
         val day = calendar.get(Calendar.DAY_OF_MONTH)
@@ -186,28 +185,37 @@ class MainActivity<Date> : AppCompatActivity() {
         return "$second,$milisecond"
     }
 
-    /*
     private val updateGraphRunnable: Runnable = object : Runnable {
         override fun run() {
             // Add one new data to each series
             pointsPlotted++
-            seriesX.appendData(DataPoint(pointsPlotted, accelerationCurrentValueX), true, pointsPlotted.toInt())
-            seriesY.appendData(DataPoint(pointsPlotted, accelerationCurrentValueY), true, pointsPlotted.toInt())
-            seriesZ.appendData(DataPoint(pointsPlotted, accelerationCurrentValueZ), true, pointsPlotted.toInt())
+            seriesX.appendData(DataPoint(pointsPlotted, accelerationCurrentValueX), true, maxDataPoints)
+            seriesY.appendData(DataPoint(pointsPlotted, accelerationCurrentValueY), true, maxDataPoints)
+            seriesZ.appendData(DataPoint(pointsPlotted, accelerationCurrentValueZ), true, maxDataPoints)
 
             // Auto rescaling viewport
             viewportX.setMaxX(pointsPlotted)
-            viewportX.setMinX(pointsPlotted - 200)
+            viewportX.setMinX(Math.max(0.0, pointsPlotted - maxDataPoints))
             viewportY.setMaxX(pointsPlotted)
-            viewportY.setMinX(pointsPlotted - 200)
+            viewportY.setMinX(Math.max(0.0, pointsPlotted - maxDataPoints))
             viewportZ.setMaxX(pointsPlotted)
-            viewportZ.setMinX(pointsPlotted - 200)
+            viewportZ.setMinX(Math.max(0.0, pointsPlotted - maxDataPoints))
+
+            // Reset data if necessary to remove invisible points
+            if (seriesX.highestValueX - seriesX.lowestValueX > maxDataPoints) {
+                seriesX.resetData(arrayOf())
+            }
+            if (seriesY.highestValueX - seriesY.lowestValueX > maxDataPoints) {
+                seriesY.resetData(arrayOf())
+            }
+            if (seriesZ.highestValueX - seriesZ.lowestValueX > maxDataPoints) {
+                seriesZ.resetData(arrayOf())
+            }
 
             // Exec this code 100 times per second
-            handler.postDelayed(this, 10)
+            handler.postDelayed(this, 100)
         }
     }
-     */
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -270,46 +278,35 @@ class MainActivity<Date> : AppCompatActivity() {
     }
 
     private fun initializeGraphs() {
-        val calendar = Calendar.getInstance()
-        val timeFormat = SimpleDateFormat("HH:mm:ss")
-        val currentTime = timeFormat.format(calendar.time)
-        val customXAxisLabelFormatter = CustomXAxisLabelFormatter()
-
         graphX = findViewById(R.id.graphX)
         viewportX = graphX.viewport
         seriesX = LineGraphSeries(arrayOf(
-            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 1.0),
-            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 5.0),
-            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 3.0)
+            DataPoint(1.0, 0.0),
+            DataPoint(2.0, 0.0),
+            DataPoint(3.0, 0.0),
         ))
         graphX.addSeries(seriesX)
-        graphX.gridLabelRenderer.labelFormatter = customXAxisLabelFormatter
-        graphX.gridLabelRenderer.numHorizontalLabels = 3 // solo 4 debido al espacio
-        graphX.viewport.isXAxisBoundsManual = false
+        graphX.viewport.isXAxisBoundsManual = true
 
         graphY = findViewById(R.id.graphY)
         viewportY = graphY.viewport
         seriesY = LineGraphSeries(arrayOf(
-            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 1.0),
-            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 5.0),
-            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 3.0)
+            DataPoint(1.0, 0.0),
+            DataPoint(2.0, 0.0),
+            DataPoint(3.0, 0.0),
         ))
         graphY.addSeries(seriesY)
-        graphY.gridLabelRenderer.labelFormatter = customXAxisLabelFormatter
-        graphY.gridLabelRenderer.numHorizontalLabels = 3 // solo 4 debido al espacio
-        graphY.viewport.isXAxisBoundsManual = false
+        graphY.viewport.isXAxisBoundsManual = true
 
         graphZ = findViewById(R.id.graphZ)
         viewportZ = graphZ.viewport
         seriesZ = LineGraphSeries(arrayOf(
-            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 1.0),
-            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 5.0),
-            DataPoint(timeFormat.parse(currentTime).time.toDouble(), 3.0)
+            DataPoint(1.0, 0.0),
+            DataPoint(2.0, 0.0),
+            DataPoint(3.0, 0.0),
         ))
         graphZ.addSeries(seriesZ)
-        graphZ.gridLabelRenderer.labelFormatter = customXAxisLabelFormatter
-        graphZ.gridLabelRenderer.numHorizontalLabels = 3 // solo 4 debido al espacio
-        graphZ.viewport.isXAxisBoundsManual = false
+        graphZ.viewport.isXAxisBoundsManual = true
 
         // Customize Graph
         seriesX.title = "Axis X"
@@ -332,7 +329,6 @@ class MainActivity<Date> : AppCompatActivity() {
         mSensorManager?.unregisterListener(sensorEventListener)
     }
 
-    /*
     private fun startUpdateGraphRunnable() {
         handler.postDelayed(updateGraphRunnable, 0)
     }
@@ -340,7 +336,6 @@ class MainActivity<Date> : AppCompatActivity() {
     private fun stopUpdateGraphRunnable() {
         handler.removeCallbacks(updateGraphRunnable)
     }
-     */
 
     private fun saveData(
         accelerationCurrentValueX: Double,
@@ -373,13 +368,13 @@ class MainActivity<Date> : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         registerSensor()
-        //startUpdateGraphRunnable()
+        startUpdateGraphRunnable()
     }
 
     override fun onPause() {
         super.onPause()
         unregisterSensor()
-        //stopUpdateGraphRunnable()
+        stopUpdateGraphRunnable()
     }
 
     override fun onDestroy() {
@@ -387,6 +382,6 @@ class MainActivity<Date> : AppCompatActivity() {
         EventBus.getDefault().unregister(this)
         super.onDestroy()
         unregisterSensor()
-        //stopUpdateGraphRunnable()
+        stopUpdateGraphRunnable()
     }
 }
