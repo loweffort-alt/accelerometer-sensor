@@ -1,6 +1,6 @@
 # QuakeSense Accelerometer
 
-Aplicación Android desarrollada en Kotlin que utiliza sensores del dispositivo (específicamente el acelerómetro) para recopilar datos en tiempo real y posiblemente para llevar a cabo algunas acciones de grabación de datos basadas en estos. Además, integra servicios de mensajería de Firebase (FCM) para recibir mensajes y notificaciones, lo que podría usarse para controlar remotamente algunas funcionalidades de la aplicación o para enviar información relevante al usuario.
+Aplicación Android desarrollada en Kotlin que utiliza sensores del dispositivo (específicamente el acelerómetro) para recopilar datos en tiempo real y para llevar a cabo algunas acciones de grabación de datos basadas en estos. Además, integra servicios de mensajería de Firebase (FCM) para recibir mensajes y notificaciones, lo que podría usarse para controlar remotamente algunas funcionalidades de la aplicación o para enviar información relevante al usuario.
 
 ## Requisitos
 
@@ -15,7 +15,7 @@ Aplicación Android desarrollada en Kotlin que utiliza sensores del dispositivo 
 
 ## Uso
 
-Hay 2 botones para enviar los datos recopilados por el acelerometro del dispositivo, estos datos son enviados a Firebase y consultados por [la estación de servicio](https://loweffort-alt.github.io/web-accel/)
+Hay 2 botones, uno para enviar los datos recopilados por el acelerometro del dispositivo y otro para borrar los datos en la base de datos, estos datos son enviados a Firebase y consultados por [la estación de servicio.](https://loweffort-alt.github.io/web-accel/)
 
 ## Contribución
 
