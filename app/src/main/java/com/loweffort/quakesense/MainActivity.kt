@@ -1,10 +1,8 @@
 package com.loweffort.quakesense
 
 import android.Manifest
-import android.content.ContentValues.TAG
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.graphics.PorterDuff
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -12,6 +10,7 @@ import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.provider.Settings
 import android.util.Log
 import android.widget.Button
 import android.widget.ProgressBar
@@ -20,7 +19,6 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.messaging.FirebaseMessaging
@@ -100,7 +98,12 @@ class MainActivity : AppCompatActivity() {
 
     private val handler = Handler()
 
-    private var firebaseRef: DatabaseReference = FirebaseDatabase.getInstance().getReference("data")
+    // Referencias del Firebase RealtimeDatabase
+    private var firebaseRef: FirebaseDatabase = FirebaseDatabase.getInstance()
+    private lateinit var firebaseAccelDataRef: DatabaseReference
+    private var firebaseInfoDeviceRef: DatabaseReference = firebaseRef.getReference("infoDevice")
+
+    private lateinit var deviceId: String
 
     private val sensorEventListener: SensorEventListener = object : SensorEventListener {
         override fun onSensorChanged(sensorEvent: SensorEvent) {
@@ -113,12 +116,12 @@ class MainActivity : AppCompatActivity() {
             accelerationCurrentValueZ = String.format("%.5f", z).toDouble()
 
             // Title of each graph
-            val accelerationXText = resources.getString(R.string.accelX, accelerationCurrentValueX)
+            /*val accelerationXText = resources.getString(R.string.accelX, accelerationCurrentValueX)
             val accelerationYText = resources.getString(R.string.accelY, accelerationCurrentValueY)
             val accelerationZText = resources.getString(R.string.accelZ, accelerationCurrentValueZ)
             txtAccelerationX.text = accelerationXText
             txtAccelerationY.text = accelerationYText
-            txtAccelerationZ.text = accelerationZText
+            txtAccelerationZ.text = accelerationZText*/
         }
 
         override fun onAccuracyChanged(sensor: Sensor, i: Int) {
@@ -128,22 +131,16 @@ class MainActivity : AppCompatActivity() {
 
     private val sendDataRunnable: Runnable = object : Runnable {
         override fun run() {
-            if (saveCount < maxSaveCount) {
-                saveData(accelerationCurrentValueX, accelerationCurrentValueY, accelerationCurrentValueZ)
-                saveCount++
-                progressBarSendData.progress = saveCount
-                if (progressBarSendData.progress == maxSaveCount) {
-                    // Cambia el color de la barra de progreso cuando esté completa
-                    progressBarSendData.progressDrawable.setColorFilter(
-                        ContextCompat.getColor(this@MainActivity, R.color.verde), // Cambia "verde" al color deseado
-                        PorterDuff.Mode.SRC_IN
-                    )
-                }
-            }
+            saveData(
+                accelerationCurrentValueX,
+                accelerationCurrentValueY,
+                accelerationCurrentValueZ
+            )
             // Esto controla la velocidad de muestreo
             handler.postDelayed(this, 20)
         }
     }
+
     private fun getCurrentDate(): String {
         val calendar = Calendar.getInstance()
         val day = calendar.get(Calendar.DAY_OF_MONTH)
@@ -162,7 +159,7 @@ class MainActivity : AppCompatActivity() {
 
         if (hour < 10) {
             hour = "0$hour".toInt()
-        } else if (minute < 10){
+        } else if (minute < 10) {
             minute = "0$minute".toInt()
         } else if (second < 10) {
             second = "0$second".toInt()
@@ -189,9 +186,21 @@ class MainActivity : AppCompatActivity() {
         override fun run() {
             // Add one new data to each series
             pointsPlotted++
-            seriesX.appendData(DataPoint(pointsPlotted, accelerationCurrentValueX), true, maxDataPoints)
-            seriesY.appendData(DataPoint(pointsPlotted, accelerationCurrentValueY), true, maxDataPoints)
-            seriesZ.appendData(DataPoint(pointsPlotted, accelerationCurrentValueZ), true, maxDataPoints)
+            seriesX.appendData(
+                DataPoint(pointsPlotted, accelerationCurrentValueX),
+                true,
+                maxDataPoints
+            )
+            seriesY.appendData(
+                DataPoint(pointsPlotted, accelerationCurrentValueY),
+                true,
+                maxDataPoints
+            )
+            seriesZ.appendData(
+                DataPoint(pointsPlotted, accelerationCurrentValueZ),
+                true,
+                maxDataPoints
+            )
 
             // Auto rescaling viewport
             viewportX.setMaxX(pointsPlotted)
@@ -220,14 +229,59 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        firebaseAccelDataRef = firebaseRef.getReference(deviceId)
 
         // Registra esta clase como un suscriptor de EventBus
         EventBus.getDefault().register(this)
 
         askNotificationPermission()
-        notifications()
+        getToken()
         initializeViews()
         initializeGraphs()
+    }
+
+    private fun getToken() {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val tokenFCM = task.result
+                sendDeviceInfo(tokenFCM)
+            } else {
+                Toast.makeText(
+                    this@MainActivity,
+                    "Error al obtener el token FCM",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    private fun sendDeviceInfo(tokensito: String) {
+        val deviceInfoId = firebaseInfoDeviceRef.push().key!!
+        val deviceModel = Build.MODEL
+        val deviceManufacturer = Build.MANUFACTURER
+        val deviceSDKVersion = Build.VERSION.SDK_INT.toString()
+        val packageManager = applicationContext.packageManager
+        val packageName = applicationContext.packageName
+        val packageInfo = packageManager.getPackageInfo(packageName, 0)
+        val appVersion = packageInfo.versionName
+        val deviceInfo = DeviceInfo(
+            deviceInfoId,
+            deviceModel,
+            deviceManufacturer,
+            deviceSDKVersion,
+            appVersion,
+            tokensito,
+        )
+
+        firebaseInfoDeviceRef.child(deviceId).setValue(deviceInfo)
+            .addOnFailureListener { exception ->
+                Toast.makeText(
+                    this,
+                    "Error al enviar la información: ${exception.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
     }
 
     // Método para manejar el evento de recepción de notificación
@@ -236,23 +290,7 @@ class MainActivity : AppCompatActivity() {
         Log.d("jhnf", "Notificación recibida!")
         // Esto envía los datos cuando una notificación es recibida
         handler.postDelayed(sendDataRunnable, 0)
-    }
-
-    private fun notifications() {
-        FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
-            if (!task.isSuccessful) {
-                Log.w(TAG, "Fetching FCM registration token failes", task.exception)
-                return@OnCompleteListener
-            }
-
-            // Get new FCM registration token
-            val token = task.result
-
-            // Log and toast
-            val msg = getString(R.string.msg_token_fmt, token)
-            Log.d(TAG, msg)
-            Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
-        })
+        handler.postDelayed({handler.removeCallbacks(sendDataRunnable)}, 30000)
     }
 
     private fun initializeViews() {
@@ -265,46 +303,54 @@ class MainActivity : AppCompatActivity() {
         progressBarSendData.max = maxSaveCount
         progressBarSendData.progress = 0
 
-        btnSendData.setOnClickListener{
+        btnSendData.setOnClickListener {
             saveCount = 0
             // Esto envía los datos cuando le das click al boton de enviar
             handler.postDelayed(sendDataRunnable, 0)
+            handler.postDelayed({handler.removeCallbacks(sendDataRunnable)}, 30000)
             saveCount = 0
         }
-        btnDeleteData.setOnClickListener{
+        btnDeleteData.setOnClickListener {
             progressBarSendData.progress = 0
-            firebaseRef.setValue(null)
+            firebaseAccelDataRef.setValue(null)
+            firebaseInfoDeviceRef.setValue(null)
         }
     }
 
     private fun initializeGraphs() {
         graphX = findViewById(R.id.graphX)
         viewportX = graphX.viewport
-        seriesX = LineGraphSeries(arrayOf(
-            DataPoint(1.0, 0.0),
-            DataPoint(2.0, 0.0),
-            DataPoint(3.0, 0.0),
-        ))
+        seriesX = LineGraphSeries(
+            arrayOf(
+                DataPoint(1.0, 0.0),
+                DataPoint(2.0, 0.0),
+                DataPoint(3.0, 0.0),
+            )
+        )
         graphX.addSeries(seriesX)
         graphX.viewport.isXAxisBoundsManual = true
 
         graphY = findViewById(R.id.graphY)
         viewportY = graphY.viewport
-        seriesY = LineGraphSeries(arrayOf(
-            DataPoint(1.0, 0.0),
-            DataPoint(2.0, 0.0),
-            DataPoint(3.0, 0.0),
-        ))
+        seriesY = LineGraphSeries(
+            arrayOf(
+                DataPoint(1.0, 0.0),
+                DataPoint(2.0, 0.0),
+                DataPoint(3.0, 0.0),
+            )
+        )
         graphY.addSeries(seriesY)
         graphY.viewport.isXAxisBoundsManual = true
 
         graphZ = findViewById(R.id.graphZ)
         viewportZ = graphZ.viewport
-        seriesZ = LineGraphSeries(arrayOf(
-            DataPoint(1.0, 0.0),
-            DataPoint(2.0, 0.0),
-            DataPoint(3.0, 0.0),
-        ))
+        seriesZ = LineGraphSeries(
+            arrayOf(
+                DataPoint(1.0, 0.0),
+                DataPoint(2.0, 0.0),
+                DataPoint(3.0, 0.0),
+            )
+        )
         graphZ.addSeries(seriesZ)
         graphZ.viewport.isXAxisBoundsManual = true
 
@@ -322,7 +368,11 @@ class MainActivity : AppCompatActivity() {
     private fun registerSensor() {
         mSensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         mAccelerometer = mSensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        mSensorManager?.registerListener(sensorEventListener, mAccelerometer, SensorManager.SENSOR_DELAY_FASTEST)
+        mSensorManager?.registerListener(
+            sensorEventListener,
+            mAccelerometer,
+            SensorManager.SENSOR_DELAY_FASTEST
+        )
     }
 
     private fun unregisterSensor() {
@@ -342,24 +392,23 @@ class MainActivity : AppCompatActivity() {
         accelerationCurrentValueY: Double,
         accelerationCurrentValueZ: Double
     ) {
+        val accelDataId = firebaseAccelDataRef.push().key!!
         val dataX = accelerationCurrentValueX.toString()
         val dataY = accelerationCurrentValueY.toString()
         val dataZ = accelerationCurrentValueZ.toString()
-
-        val dataId = firebaseRef.push().key!!
-        val deviceModel = Build.MODEL
-        val deviceManufacturer = Build.MANUFACTURER
-        val deviceVersion = Build.VERSION.SDK_INT.toString()
-        val packageManager = applicationContext.packageManager
-        val packageName = applicationContext.packageName
-        val packageInfo = packageManager.getPackageInfo(packageName, 0)
-        val appVersion = packageInfo.versionName
         val currentDate = getCurrentDate()
         val currentTime = getCurrentTime()
         val getTimeTest = getDataTimeTest()
-        val data = AllData(dataId, dataX, dataY, dataZ, deviceModel, deviceManufacturer, deviceVersion, appVersion, currentDate, currentTime, getTimeTest)
-
-        firebaseRef.child(dataId).setValue(data)
+        val accelData = AccelData(
+            accelDataId,
+            dataX,
+            dataY,
+            dataZ,
+            currentDate,
+            currentTime,
+            getTimeTest
+        )
+        firebaseAccelDataRef.child(accelDataId).setValue(accelData)
             .addOnFailureListener {
                 Toast.makeText(this, "error ${it.message}", Toast.LENGTH_SHORT).show()
             }
@@ -373,7 +422,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        unregisterSensor()
+        //unregisterSensor()
         stopUpdateGraphRunnable()
     }
 
