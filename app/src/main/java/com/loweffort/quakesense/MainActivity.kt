@@ -39,8 +39,10 @@ class MainActivity : AppCompatActivity() {
     ) { isGranted: Boolean ->
         if (isGranted) {
             // FCM SDK (and your app) can post notifications.
+            Toast.makeText(this, "FCM SDK (and your app) can post notifications", Toast.LENGTH_SHORT).show()
         } else {
-            // TODO: Inform user that that your app will not show notifications.
+            // Inform user that that your app will not show notifications.
+            Toast.makeText(this, "app will not show notifications.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -173,7 +175,7 @@ class MainActivity : AppCompatActivity() {
     private fun getDataTimeTest(): String {
         val calendar = Calendar.getInstance()
         var second = calendar.get(Calendar.SECOND).toString()
-        var milisecond = calendar.get(Calendar.MILLISECOND).toString()
+        val milisecond = calendar.get(Calendar.MILLISECOND).toString()
 
         if (second.toInt() < 10) {
             second = "0$second"
@@ -204,11 +206,11 @@ class MainActivity : AppCompatActivity() {
 
             // Auto rescaling viewport
             viewportX.setMaxX(pointsPlotted)
-            viewportX.setMinX(Math.max(0.0, pointsPlotted - maxDataPoints))
+            viewportX.setMinX(kotlin.math.max(0.0, pointsPlotted - maxDataPoints))
             viewportY.setMaxX(pointsPlotted)
-            viewportY.setMinX(Math.max(0.0, pointsPlotted - maxDataPoints))
+            viewportY.setMinX(kotlin.math.max(0.0, pointsPlotted - maxDataPoints))
             viewportZ.setMaxX(pointsPlotted)
-            viewportZ.setMinX(Math.max(0.0, pointsPlotted - maxDataPoints))
+            viewportZ.setMinX(kotlin.math.max(0.0, pointsPlotted - maxDataPoints))
 
             // Reset data if necessary to remove invisible points
             if (seriesX.highestValueX - seriesX.lowestValueX > maxDataPoints) {
