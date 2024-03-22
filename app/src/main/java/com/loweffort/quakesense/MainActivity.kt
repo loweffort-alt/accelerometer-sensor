@@ -19,6 +19,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.messaging.FirebaseMessaging
@@ -26,6 +27,10 @@ import com.jjoe64.graphview.GraphView
 import com.jjoe64.graphview.Viewport
 import com.jjoe64.graphview.series.DataPoint
 import com.jjoe64.graphview.series.LineGraphSeries
+import com.loweffort.quakesense.room.AccelDatabase
+import com.loweffort.quakesense.room.AccelEntity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
@@ -107,6 +112,9 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var deviceId: String
 
+    // Guardado en DB local
+    private lateinit var database: AccelDatabase
+
     private val sensorEventListener: SensorEventListener = object : SensorEventListener {
         override fun onSensorChanged(sensorEvent: SensorEvent) {
             val x: Float = sensorEvent.values[0]
@@ -116,6 +124,11 @@ class MainActivity : AppCompatActivity() {
             accelerationCurrentValueX = String.format("%.5f", x).toDouble()
             accelerationCurrentValueY = String.format("%.5f", y).toDouble()
             accelerationCurrentValueZ = String.format("%.5f", z).toDouble()
+
+            sensorEvent.let {
+                val reading = AccelEntity(x = accelerationCurrentValueX, y = accelerationCurrentValueY, z = accelerationCurrentValueZ)
+                saveReading(reading)
+            }
 
             // Title of each graph
             /*val accelerationXText = resources.getString(R.string.accelX, accelerationCurrentValueX)
@@ -234,13 +247,27 @@ class MainActivity : AppCompatActivity() {
         deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
         firebaseAccelDataRef = firebaseRef.getReference(deviceId)
 
+        database = AccelDatabase.getDatabase(this)
+
         // Registra esta clase como un suscriptor de EventBus
         EventBus.getDefault().register(this)
 
         askNotificationPermission()
         getToken()
+        registerSensor()
         initializeViews()
         initializeGraphs()
+    }
+
+    private fun saveReading(reading: AccelEntity) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            Log.d("Runnable", "Runnable Corriendo")
+            // Aquí iría el código para insertar la lectura en la base de datos
+            // y para mantener el máximo de datos a 500
+            database.accelReadingDao().insertReading(reading)
+            // Después de cada inserción, asegurarse de no superar los 500 registros.
+            database.accelReadingDao().keepMaxNumberOfData()
+        }
     }
 
     private fun getToken() {
