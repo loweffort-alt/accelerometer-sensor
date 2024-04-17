@@ -7,62 +7,85 @@
     tools:context=".MainActivity">
 
     <TextView
+        android:id="@+id/txt_accelX2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:padding="5dp"
+        android:text="@string/axisX"
+        android:textColor="#4CAF50"
+        android:textSize="20sp"
+        app:layout_constraintBottom_toTopOf="@+id/btnDeleteData"
+        app:layout_constraintEnd_toStartOf="@+id/txt_accelX3"
+        app:layout_constraintHorizontal_bias="0.472"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/txt_accelX3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:padding="5dp"
+        android:text="@string/axisY"
+        android:textColor="#F44336"
+        android:textSize="20sp"
+        app:layout_constraintBottom_toTopOf="@+id/btnDeleteData"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/txt_accelX4"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:padding="5dp"
+        android:text="@string/axisZ"
+        android:textColor="#2196F3"
+        android:textSize="20sp"
+        app:layout_constraintBottom_toTopOf="@+id/btnSendData"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/txt_accelX3" />
+
+    <TextView
         android:id="@+id/txt_accelX"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:padding="10dp"
-        android:text="@string/accelX"
+        android:text="@string/dataAmount"
         android:textSize="20sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/logo" />
 
-    <com.jjoe64.graphview.GraphView
-        android:id="@+id/graphX"
-        android:layout_width="match_parent"
-        android:layout_height="150dp"
-        app:layout_constraintTop_toBottomOf="@+id/txt_accelX"
-        tools:layout_editor_absoluteX="-16dp" />
-
-    <TextView
-        android:id="@+id/txt_accelY"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:padding="10dp"
-        android:text="@string/accelY"
-        android:textSize="20sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/graphX" />
-
-    <com.jjoe64.graphview.GraphView
+    <!--<com.jjoe64.graphview.GraphView
         android:id="@+id/graphY"
         android:layout_width="match_parent"
         android:layout_height="150dp"
-        app:layout_constraintTop_toBottomOf="@+id/txt_accelY"
+        android:layout_marginTop="20dp"
+        app:layout_constraintTop_toBottomOf="@+id/graphX"
         tools:layout_editor_absoluteX="0dp" />
-
-    <TextView
-        android:id="@+id/txt_accelZ"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:padding="10dp"
-        android:text="@string/accelZ"
-        android:textSize="20sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/graphY" />
 
     <com.jjoe64.graphview.GraphView
         android:id="@+id/graphZ"
         android:layout_width="match_parent"
         android:layout_height="150dp"
-        app:layout_constraintTop_toBottomOf="@+id/txt_accelZ"
-        tools:layout_editor_absoluteX="-16dp" />
+        android:layout_marginTop="20dp"
+        app:layout_constraintTop_toBottomOf="@+id/graphY"
+        tools:layout_editor_absoluteX="0dp" />-->
+
+    <com.jjoe64.graphview.GraphView
+        android:id="@+id/graphX"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="20dp"
+        app:layout_constraintBottom_toTopOf="@+id/txt_accelX3"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/txt_accelX" />
 
     <ImageView
         android:id="@+id/logo"

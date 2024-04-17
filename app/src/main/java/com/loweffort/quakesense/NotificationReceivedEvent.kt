@@ -1,5 +1,4 @@
 package com.loweffort.quakesense
 
-class NotificationReceivedEvent {
-
+class NotificationReceivedEvent(val seismTime: String) {
 }

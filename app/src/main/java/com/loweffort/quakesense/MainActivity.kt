@@ -31,10 +31,10 @@ import com.loweffort.quakesense.room.AccelDatabase
 import com.loweffort.quakesense.room.AccelEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
-import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
 
@@ -70,12 +70,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private lateinit var txtAccelerationX: TextView
-    private lateinit var txtAccelerationY: TextView
-    private lateinit var txtAccelerationZ: TextView
+    private lateinit var dataCounter: TextView
 
     //Buttons
-    private var saveCount = 0
     private lateinit var btnSendData: Button
     private lateinit var btnDeleteData: Button
     private lateinit var progressBarSendData: ProgressBar
@@ -96,12 +93,12 @@ class MainActivity : AppCompatActivity() {
     private val maxDataPoints = 100
 
     private lateinit var viewportX: Viewport
-    private lateinit var viewportY: Viewport
-    private lateinit var viewportZ: Viewport
+    /*private lateinit var viewportY: Viewport
+    private lateinit var viewportZ: Viewport*/
 
     private lateinit var graphX: GraphView
-    private lateinit var graphY: GraphView
-    private lateinit var graphZ: GraphView
+    /*private lateinit var graphY: GraphView
+    private lateinit var graphZ: GraphView*/
 
     private val handler = Handler()
 
@@ -129,14 +126,6 @@ class MainActivity : AppCompatActivity() {
                 val reading = AccelEntity(x = accelerationCurrentValueX, y = accelerationCurrentValueY, z = accelerationCurrentValueZ)
                 saveReading(reading)
             }
-
-            // Title of each graph
-            /*val accelerationXText = resources.getString(R.string.accelX, accelerationCurrentValueX)
-            val accelerationYText = resources.getString(R.string.accelY, accelerationCurrentValueY)
-            val accelerationZText = resources.getString(R.string.accelZ, accelerationCurrentValueZ)
-            txtAccelerationX.text = accelerationXText
-            txtAccelerationY.text = accelerationYText
-            txtAccelerationZ.text = accelerationZText*/
         }
 
         override fun onAccuracyChanged(sensor: Sensor, i: Int) {
@@ -144,58 +133,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val sendDataRunnable: Runnable = object : Runnable {
-        override fun run() {
-            saveData(
-                accelerationCurrentValueX,
-                accelerationCurrentValueY,
-                accelerationCurrentValueZ
-            )
-            // Esto controla la velocidad de muestreo
-            handler.postDelayed(this, 20)
-        }
-    }
-
-    private fun getCurrentDate(): String {
-        val calendar = Calendar.getInstance()
-        val day = calendar.get(Calendar.DAY_OF_MONTH)
-        val month = calendar.get(Calendar.MONTH) + 1 // Los meses comienzan desde 0
-        val year = calendar.get(Calendar.YEAR)
-
-        return "$day/$month/$year"
-    }
-
-    private fun getCurrentTime(): String {
-        val calendar = Calendar.getInstance()
-        var hour = calendar.get(Calendar.HOUR_OF_DAY)
-        var minute = calendar.get(Calendar.MINUTE)
-        var second = calendar.get(Calendar.SECOND)
-        var milisecond = calendar.get(Calendar.MILLISECOND)
-
-        if (hour < 10) {
-            hour = "0$hour".toInt()
-        } else if (minute < 10) {
-            minute = "0$minute".toInt()
-        } else if (second < 10) {
-            second = "0$second".toInt()
-        } else if (milisecond < 100) {
-            milisecond = "0$milisecond".toInt()
-        }
-
-        return "$hour:$minute:$second.$milisecond"
-    }
-
-    private fun getDataTimeTest(): String {
-        val calendar = Calendar.getInstance()
-        var second = calendar.get(Calendar.SECOND).toString()
-        val milisecond = calendar.get(Calendar.MILLISECOND).toString()
-
-        if (second.toInt() < 10) {
-            second = "0$second"
-        }
-
-        return "$second,$milisecond"
-    }
+    // Obtener ubicación desde GPS
+    private val locationService:LocationService = LocationService()
 
     private val updateGraphRunnable: Runnable = object : Runnable {
         override fun run() {
@@ -220,10 +159,6 @@ class MainActivity : AppCompatActivity() {
             // Auto rescaling viewport
             viewportX.setMaxX(pointsPlotted)
             viewportX.setMinX(kotlin.math.max(0.0, pointsPlotted - maxDataPoints))
-            viewportY.setMaxX(pointsPlotted)
-            viewportY.setMinX(kotlin.math.max(0.0, pointsPlotted - maxDataPoints))
-            viewportZ.setMaxX(pointsPlotted)
-            viewportZ.setMinX(kotlin.math.max(0.0, pointsPlotted - maxDataPoints))
 
             // Reset data if necessary to remove invisible points
             if (seriesX.highestValueX - seriesX.lowestValueX > maxDataPoints) {
@@ -249,6 +184,12 @@ class MainActivity : AppCompatActivity() {
 
         database = AccelDatabase.getDatabase(this)
 
+        lifecycleScope.launch(Dispatchers.IO) {
+            Log.d("Runnable", "Runnable Corriendo")
+            // Borrar la base de datos al abrir la aplicación
+            database.accelReadingDao().resetDatabase()
+        }
+
         // Registra esta clase como un suscriptor de EventBus
         EventBus.getDefault().register(this)
 
@@ -257,6 +198,24 @@ class MainActivity : AppCompatActivity() {
         registerSensor()
         initializeViews()
         initializeGraphs()
+        updateTextEachSecond()
+    }
+
+    private fun updateTextEachSecond() {
+        val handler = Handler()
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    // Devuelve la cantidad total de datos
+                    val dataAmount = database.accelReadingDao().getCount()
+                    withContext(Dispatchers.Main) {
+                        val showDataAmount = resources.getString(R.string.dataAmount, dataAmount)
+                        dataCounter.text = showDataAmount
+                    }
+                }
+                handler.postDelayed(this, 1000)
+            }
+        }, 1000) // 1000 milisegundos = 1 segundo
     }
 
     private fun saveReading(reading: AccelEntity) {
@@ -265,27 +224,42 @@ class MainActivity : AppCompatActivity() {
             // Aquí iría el código para insertar la lectura en la base de datos
             // y para mantener el máximo de datos a 500
             database.accelReadingDao().insertReading(reading)
-            // Después de cada inserción, asegurarse de no superar los 500 registros.
+            // Después de cada inserción, asegurarse de no superar los 90000 registros.
+            // Actualmente hace 50 registros cada segundo y con un máximo de 90000 registros
+            // significa que registra 1800 segundos (30 min) en Local
             database.accelReadingDao().keepMaxNumberOfData()
         }
     }
 
     private fun getToken() {
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                val tokenFCM = task.result
-                sendDeviceInfo(tokenFCM)
-            } else {
-                Toast.makeText(
-                    this@MainActivity,
-                    "Error al obtener el token FCM",
-                    Toast.LENGTH_SHORT
-                ).show()
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = locationService.getUserLocation(this@MainActivity)
+            var latitude: String? = null
+            var longitude: String? = null
+            var altitude: String? = null
+
+            if(result!=null){
+                latitude = result.latitude.toString() // Latitude of this location Value is between -90.0 and 90.0 inclusive
+                longitude = result.longitude.toString() // Longitude of this location Value is between -180.0 and 180.0 inclusive
+                altitude = result.altitude.toString() //The altitude of this location in meters above the WGS84 reference ellipsoid.
+            }
+
+            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    val tokenFCM = task.result
+                    sendDeviceInfo(tokenFCM, latitude, longitude, altitude)
+                } else {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Error al obtener el token FCM",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
     }
 
-    private fun sendDeviceInfo(tokensito: String) {
+    private fun sendDeviceInfo(tokenFCM: String, latitude: String?, longitude: String?, altitude: String?) {
         val deviceInfoId = firebaseInfoDeviceRef.push().key!!
         val deviceModel = Build.MODEL
         val deviceManufacturer = Build.MANUFACTURER
@@ -300,32 +274,36 @@ class MainActivity : AppCompatActivity() {
             deviceManufacturer,
             deviceSDKVersion,
             appVersion,
-            tokensito,
+            tokenFCM,
+        )
+        val currentLocation = CurrentLocation(
+            latitude,
+            longitude,
+            altitude
         )
 
         firebaseInfoDeviceRef.child(deviceId).setValue(deviceInfo)
-            .addOnFailureListener { exception ->
-                Toast.makeText(
-                    this,
-                    "Error al enviar la información: ${exception.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
+        firebaseInfoDeviceRef.child(deviceId).child("currentLocation").setValue(currentLocation)
     }
 
     // Método para manejar el evento de recepción de notificación
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onNotificationReceived(event: NotificationReceivedEvent) {
-        Log.d("jhnf", "Notificación recibida!")
         // Esto envía los datos cuando una notificación es recibida
-        handler.postDelayed(sendDataRunnable, 0)
-        handler.postDelayed({handler.removeCallbacks(sendDataRunnable)}, 30000)
+        //handler.postDelayed(sendDataRunnable, 0)
+        Log.d("onNotificationReceived", event.seismTime)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val timestampFromServer = event.seismTime.toLong()
+            val firstData = database.accelReadingDao().getInitialData(timestampFromServer)
+            firebaseAccelDataRef.child("localData").setValue(firstData)
+            //val weaData = database.accelReadingDao().getAllReadings()
+            //firebaseAccelDataRef.child("timestamp").setValue(weaData)
+        }
+        //handler.postDelayed({handler.removeCallbacks(sendDataRunnable)}, 30000)
     }
 
     private fun initializeViews() {
-        txtAccelerationX = findViewById(R.id.txt_accelX)
-        txtAccelerationY = findViewById(R.id.txt_accelY)
-        txtAccelerationZ = findViewById(R.id.txt_accelZ)
+        dataCounter = findViewById(R.id.txt_accelX)
         btnSendData = findViewById(R.id.btnSendData)
         btnDeleteData = findViewById(R.id.btnDeleteData)
         progressBarSendData = findViewById(R.id.progressBarSendData)
@@ -333,55 +311,32 @@ class MainActivity : AppCompatActivity() {
         progressBarSendData.progress = 0
 
         btnSendData.setOnClickListener {
-            saveCount = 0
-            // Esto envía los datos cuando le das click al boton de enviar
-            handler.postDelayed(sendDataRunnable, 0)
-            handler.postDelayed({handler.removeCallbacks(sendDataRunnable)}, 30000)
-            saveCount = 0
+            lifecycleScope.launch(Dispatchers.IO) {
+                val allReadings = database.accelReadingDao().getAllReadings()
+                firebaseAccelDataRef.child("sismicData").setValue(allReadings)
+            }
         }
         btnDeleteData.setOnClickListener {
             progressBarSendData.progress = 0
+            // Borrar TODA la base de datos
+            //firebaseRef.reference.setValue(null)
+            // Borrar los datos de aceleración guardados desde el dispositivo
             firebaseAccelDataRef.setValue(null)
-            firebaseInfoDeviceRef.setValue(null)
+            // Borrar los datos propios de TODOS los dispositivos
+            //firebaseInfoDeviceRef.setValue(null)
         }
     }
 
     private fun initializeGraphs() {
         graphX = findViewById(R.id.graphX)
         viewportX = graphX.viewport
-        seriesX = LineGraphSeries(
-            arrayOf(
-                DataPoint(1.0, 0.0),
-                DataPoint(2.0, 0.0),
-                DataPoint(3.0, 0.0),
-            )
-        )
+        seriesX = LineGraphSeries()
+        seriesY = LineGraphSeries()
+        seriesZ = LineGraphSeries()
         graphX.addSeries(seriesX)
+        graphX.addSeries(seriesY)
+        graphX.addSeries(seriesZ)
         graphX.viewport.isXAxisBoundsManual = true
-
-        graphY = findViewById(R.id.graphY)
-        viewportY = graphY.viewport
-        seriesY = LineGraphSeries(
-            arrayOf(
-                DataPoint(1.0, 0.0),
-                DataPoint(2.0, 0.0),
-                DataPoint(3.0, 0.0),
-            )
-        )
-        graphY.addSeries(seriesY)
-        graphY.viewport.isXAxisBoundsManual = true
-
-        graphZ = findViewById(R.id.graphZ)
-        viewportZ = graphZ.viewport
-        seriesZ = LineGraphSeries(
-            arrayOf(
-                DataPoint(1.0, 0.0),
-                DataPoint(2.0, 0.0),
-                DataPoint(3.0, 0.0),
-            )
-        )
-        graphZ.addSeries(seriesZ)
-        graphZ.viewport.isXAxisBoundsManual = true
 
         // Customize Graph
         seriesX.title = "Axis X"
@@ -397,11 +352,15 @@ class MainActivity : AppCompatActivity() {
     private fun registerSensor() {
         mSensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         mAccelerometer = mSensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+        // Calcular el intervalo de tiempo en milisegundos
+        val intervalMillis = 20
+
         mSensorManager?.registerListener(
             sensorEventListener,
             mAccelerometer,
-            SensorManager.SENSOR_DELAY_FASTEST
-        )
+            intervalMillis * 1000 // Actualmente lee 50 datos por segundo
+            )
     }
 
     private fun unregisterSensor() {
@@ -414,33 +373,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun stopUpdateGraphRunnable() {
         handler.removeCallbacks(updateGraphRunnable)
-    }
-
-    private fun saveData(
-        accelerationCurrentValueX: Double,
-        accelerationCurrentValueY: Double,
-        accelerationCurrentValueZ: Double
-    ) {
-        val accelDataId = firebaseAccelDataRef.push().key!!
-        val dataX = accelerationCurrentValueX.toString()
-        val dataY = accelerationCurrentValueY.toString()
-        val dataZ = accelerationCurrentValueZ.toString()
-        val currentDate = getCurrentDate()
-        val currentTime = getCurrentTime()
-        val getTimeTest = getDataTimeTest()
-        val accelData = AccelData(
-            accelDataId,
-            dataX,
-            dataY,
-            dataZ,
-            currentDate,
-            currentTime,
-            getTimeTest
-        )
-        firebaseAccelDataRef.child(accelDataId).setValue(accelData)
-            .addOnFailureListener {
-                Toast.makeText(this, "error ${it.message}", Toast.LENGTH_SHORT).show()
-            }
     }
 
     override fun onResume() {

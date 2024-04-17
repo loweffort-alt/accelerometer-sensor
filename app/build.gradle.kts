@@ -60,6 +60,9 @@ dependencies {
     implementation ("com.google.firebase:firebase-messaging-directboot:20.2.0")
     implementation("com.google.firebase:firebase-messaging")
 
+    // GPS
+    implementation("com.google.android.gms:play-services-location:21.2.0")
+
     //Compose
     val composeBom = platform("androidx.compose:compose-bom:2024.02.02")
     implementation(composeBom)

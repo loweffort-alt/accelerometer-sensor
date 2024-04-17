@@ -1,8 +1,9 @@
 <resources>
     <string name="app_name">Accelerometer</string>
-    <string name="accelX">X Acceleration = %.2f</string>
-    <string name="accelY">Y Acceleration = %.2f</string>
-    <string name="accelZ">Z Acceleration = %.2f</string>
+    <string name="dataAmount">Cantidad de datos = %d</string>
+    <string name="axisX">Eje X</string>
+    <string name="axisY">Eje Y</string>
+    <string name="axisZ">Eje Z</string>
     <string name="logo">logo</string>
     <string name="msg_token_fmt">%1$s</string>
 </resources>
