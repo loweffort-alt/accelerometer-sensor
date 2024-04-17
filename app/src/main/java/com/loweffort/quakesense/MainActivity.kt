@@ -1,6 +1,11 @@
 package com.loweffort.quakesense
 
 import android.Manifest
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.hardware.Sensor
@@ -10,6 +15,8 @@ import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.Parcel
+import android.os.Parcelable
 import android.provider.Settings
 import android.util.Log
 import android.widget.Button
@@ -17,7 +24,9 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.firebase.database.DatabaseReference
@@ -36,7 +45,12 @@ import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
 
-class MainActivity : AppCompatActivity() {
+interface MainExecution : Parcelable {
+    fun getToken()
+    fun registerSensor()
+}
+
+class MainActivity() : AppCompatActivity(), MainExecution {
 
     // Config to show notifications:
     private val requestPermissionLauncher = registerForActivityResult(
@@ -44,7 +58,11 @@ class MainActivity : AppCompatActivity() {
     ) { isGranted: Boolean ->
         if (isGranted) {
             // FCM SDK (and your app) can post notifications.
-            Toast.makeText(this, "FCM SDK (and your app) can post notifications", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                "FCM SDK (and your app) can post notifications",
+                Toast.LENGTH_SHORT
+            ).show()
         } else {
             // Inform user that that your app will not show notifications.
             Toast.makeText(this, "app will not show notifications.", Toast.LENGTH_SHORT).show()
@@ -123,7 +141,11 @@ class MainActivity : AppCompatActivity() {
             accelerationCurrentValueZ = String.format("%.5f", z).toDouble()
 
             sensorEvent.let {
-                val reading = AccelEntity(x = accelerationCurrentValueX, y = accelerationCurrentValueY, z = accelerationCurrentValueZ)
+                val reading = AccelEntity(
+                    x = accelerationCurrentValueX,
+                    y = accelerationCurrentValueY,
+                    z = accelerationCurrentValueZ
+                )
                 saveReading(reading)
             }
         }
@@ -134,7 +156,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Obtener ubicación desde GPS
-    private val locationService:LocationService = LocationService()
+    private val locationService: LocationService = LocationService()
 
     private val updateGraphRunnable: Runnable = object : Runnable {
         override fun run() {
@@ -176,6 +198,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    constructor(parcel: Parcel) : this() {
+        accelerationCurrentValueX = parcel.readDouble()
+        accelerationCurrentValueY = parcel.readDouble()
+        accelerationCurrentValueZ = parcel.readDouble()
+        pointsPlotted = parcel.readDouble()
+        deviceId = parcel.readString().toString()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -196,6 +226,21 @@ class MainActivity : AppCompatActivity() {
         askNotificationPermission()
         getToken()
         registerSensor()
+
+        val intent = Intent(this, ForegroundService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Log.d("SDK_VERSIONForegroundService", Build.VERSION.SDK_INT.toString())
+            fun doSomething() {
+                // Función que deseas ejecutar desde ForegroundService
+                // Por ejemplo:
+                // actualizarUI()
+            }
+            startForegroundService(intent)
+        } else {
+            Log.d("SDK_VERSIONService", Build.VERSION.SDK_INT.toString())
+            startService(intent)
+        }
+
         initializeViews()
         initializeGraphs()
         updateTextEachSecond()
@@ -231,17 +276,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun getToken() {
+    override fun getToken() {
         lifecycleScope.launch(Dispatchers.IO) {
             val result = locationService.getUserLocation(this@MainActivity)
             var latitude: String? = null
             var longitude: String? = null
             var altitude: String? = null
 
-            if(result!=null){
-                latitude = result.latitude.toString() // Latitude of this location Value is between -90.0 and 90.0 inclusive
-                longitude = result.longitude.toString() // Longitude of this location Value is between -180.0 and 180.0 inclusive
-                altitude = result.altitude.toString() //The altitude of this location in meters above the WGS84 reference ellipsoid.
+            if (result != null) {
+                latitude =
+                    result.latitude.toString() // Latitude of this location Value is between -90.0 and 90.0 inclusive
+                longitude =
+                    result.longitude.toString() // Longitude of this location Value is between -180.0 and 180.0 inclusive
+                altitude =
+                    result.altitude.toString() //The altitude of this location in meters above the WGS84 reference ellipsoid.
             }
 
             FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
@@ -259,7 +307,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendDeviceInfo(tokenFCM: String, latitude: String?, longitude: String?, altitude: String?) {
+    private fun sendDeviceInfo(
+        tokenFCM: String,
+        latitude: String?,
+        longitude: String?,
+        altitude: String?
+    ) {
         val deviceInfoId = firebaseInfoDeviceRef.push().key!!
         val deviceModel = Build.MODEL
         val deviceManufacturer = Build.MANUFACTURER
@@ -349,7 +402,7 @@ class MainActivity : AppCompatActivity() {
         seriesZ.color = Color.BLUE
     }
 
-    private fun registerSensor() {
+    override fun registerSensor() {
         mSensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         mAccelerometer = mSensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
@@ -360,7 +413,15 @@ class MainActivity : AppCompatActivity() {
             sensorEventListener,
             mAccelerometer,
             intervalMillis * 1000 // Actualmente lee 50 datos por segundo
-            )
+        )
+    }
+
+    override fun describeContents(): Int {
+        TODO("Not yet implemented")
+    }
+
+    override fun writeToParcel(dest: Parcel, flags: Int) {
+        TODO("Not yet implemented")
     }
 
     private fun unregisterSensor() {
@@ -393,5 +454,15 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         unregisterSensor()
         stopUpdateGraphRunnable()
+    }
+
+    companion object CREATOR : Parcelable.Creator<MainActivity> {
+        override fun createFromParcel(parcel: Parcel): MainActivity {
+            return MainActivity(parcel)
+        }
+
+        override fun newArray(size: Int): Array<MainActivity?> {
+            return arrayOfNulls(size)
+        }
     }
 }
