@@ -31,8 +31,6 @@ class ForegroundService : Service() {
         executionSensorGetToken?.getToken()
         executionSensorGetToken?.registerSensor()
 
-
-
         startForegroundService()
         return START_STICKY
     }

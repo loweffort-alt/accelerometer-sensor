@@ -43,15 +43,16 @@ class MyFirebaseMessaginService : FirebaseMessagingService() {
             Log.d("MessageRecibido", "Mensaje recibido en primerplano")
 
             // Ejecutar el bloque de código dentro de una corrutina
-            /*serviceScope.launch {
+            serviceScope.launch {
                 val timestampFromServer = seismTime?.toLong()
+//                val timestampFromServer = 158.toLong()
                 val firstData = timestampFromServer?.let {
                     database.accelReadingDao().getInitialData(
                         it
                     )
                 }
                 firebaseAccelDataRef.child("localData").setValue(firstData)
-            }*/
+            }
         }
 
         // Check if message contains a notification payload.

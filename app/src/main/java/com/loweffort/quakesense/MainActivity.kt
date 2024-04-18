@@ -344,14 +344,14 @@ class MainActivity() : AppCompatActivity(), MainExecution {
     fun onNotificationReceived(event: NotificationReceivedEvent) {
         // Esto envía los datos cuando una notificación es recibida
         //handler.postDelayed(sendDataRunnable, 0)
-        Log.d("onNotificationReceived", event.seismTime)
-        lifecycleScope.launch(Dispatchers.IO) {
+        Log.d("SuscribeMainActv", event.seismTime)
+        /*lifecycleScope.launch(Dispatchers.IO) {
             val timestampFromServer = event.seismTime.toLong()
             val firstData = database.accelReadingDao().getInitialData(timestampFromServer)
             firebaseAccelDataRef.child("localData").setValue(firstData)
             //val weaData = database.accelReadingDao().getAllReadings()
             //firebaseAccelDataRef.child("timestamp").setValue(weaData)
-        }
+        }*/
         //handler.postDelayed({handler.removeCallbacks(sendDataRunnable)}, 30000)
     }
 
