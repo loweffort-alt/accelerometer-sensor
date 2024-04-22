@@ -1,5 +1,7 @@
 package com.loweffort.quakesense
 
+
+import android.content.ContentValues.TAG
 import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
@@ -146,7 +148,7 @@ class MainActivity() : AppCompatActivity(), MainExecution {
                     y = accelerationCurrentValueY,
                     z = accelerationCurrentValueZ
                 )
-                saveReading(reading)
+                //saveReading(reading)
             }
         }
 
@@ -209,6 +211,7 @@ class MainActivity() : AppCompatActivity(), MainExecution {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        SingletonContextProvider.setContext(this)
         deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
         firebaseAccelDataRef = firebaseRef.getReference(deviceId)
 
@@ -225,7 +228,7 @@ class MainActivity() : AppCompatActivity(), MainExecution {
 
         askNotificationPermission()
         getToken()
-        registerSensor()
+        //registerSensor()
 
         val intent = Intent(this, ForegroundService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -344,7 +347,7 @@ class MainActivity() : AppCompatActivity(), MainExecution {
     fun onNotificationReceived(event: NotificationReceivedEvent) {
         // Esto envía los datos cuando una notificación es recibida
         //handler.postDelayed(sendDataRunnable, 0)
-        Log.d("SuscribeMainActv", event.seismTime)
+        Log.d(TAG, event.seismTime)
         /*lifecycleScope.launch(Dispatchers.IO) {
             val timestampFromServer = event.seismTime.toLong()
             val firstData = database.accelReadingDao().getInitialData(timestampFromServer)
@@ -403,17 +406,17 @@ class MainActivity() : AppCompatActivity(), MainExecution {
     }
 
     override fun registerSensor() {
-        mSensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
-        mAccelerometer = mSensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        /*mSensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
+        mAccelerometer = mSensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)*/
 
         // Calcular el intervalo de tiempo en milisegundos
-        val intervalMillis = 20
+        //val intervalMillis = 20
 
-        mSensorManager?.registerListener(
+       /* mSensorManager?.registerListener(
             sensorEventListener,
             mAccelerometer,
             intervalMillis * 1000 // Actualmente lee 50 datos por segundo
-        )
+        )*/
     }
 
     override fun describeContents(): Int {

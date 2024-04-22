@@ -17,6 +17,10 @@ interface AccelDao {
     @Query("SELECT * FROM accelEntity WHERE timestamp <= :timestampFromServer ORDER BY id DESC LIMIT 15000")
     suspend fun getInitialData(timestampFromServer: Long): List<AccelEntity>
 
+    @Query("SELECT * FROM accelEntity ORDER BY id DESC LIMIT 1")
+    suspend fun getFirstData(): List<AccelEntity>
+
+
     //Almacena 90000 datos máximo. Estos datos se registran en mínimo 30 minutos.
     @Query("DELETE FROM accelEntity WHERE id NOT IN (SELECT id from accelEntity ORDER BY id DESC LIMIT 90000)")
     suspend fun keepMaxNumberOfData()
