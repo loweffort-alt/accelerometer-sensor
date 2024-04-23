@@ -3,17 +3,10 @@ package com.loweffort.quakesense
 
 import android.content.ContentValues.TAG
 import android.Manifest
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.Service
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -26,9 +19,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.firebase.database.DatabaseReference
@@ -39,7 +30,6 @@ import com.jjoe64.graphview.Viewport
 import com.jjoe64.graphview.series.DataPoint
 import com.jjoe64.graphview.series.LineGraphSeries
 import com.loweffort.quakesense.room.AccelDatabase
-import com.loweffort.quakesense.room.AccelEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -96,15 +86,10 @@ class MainActivity() : AppCompatActivity(), MainExecution {
     private lateinit var btnSendData: Button
     private lateinit var btnDeleteData: Button
     private lateinit var progressBarSendData: ProgressBar
-    private val maxSaveCount = 500 //Máx datos grabados en 5 min: 30000
 
-    //Sensors
-    private var mSensorManager: SensorManager? = null
-    private var mAccelerometer: Sensor? = null
-
-    private var accelerationCurrentValueX: Double = 0.0
-    private var accelerationCurrentValueY: Double = 0.0
-    private var accelerationCurrentValueZ: Double = 0.0
+    private var newPointGraphX: Double? = 0.0
+    private var newPointGraphY: Double? = 0.0
+    private var newPointGraphZ: Double? = 0.0
     private var pointsPlotted: Double = 5.0
 
     private lateinit var seriesX: LineGraphSeries<DataPoint>
@@ -132,67 +117,61 @@ class MainActivity() : AppCompatActivity(), MainExecution {
     // Guardado en DB local
     private lateinit var database: AccelDatabase
 
-    private val sensorEventListener: SensorEventListener = object : SensorEventListener {
-        override fun onSensorChanged(sensorEvent: SensorEvent) {
-            val x: Float = sensorEvent.values[0]
-            val y: Float = sensorEvent.values[1]
-            val z: Float = sensorEvent.values[2] - 9.81f
-
-            accelerationCurrentValueX = String.format("%.5f", x).toDouble()
-            accelerationCurrentValueY = String.format("%.5f", y).toDouble()
-            accelerationCurrentValueZ = String.format("%.5f", z).toDouble()
-
-            sensorEvent.let {
-                val reading = AccelEntity(
-                    x = accelerationCurrentValueX,
-                    y = accelerationCurrentValueY,
-                    z = accelerationCurrentValueZ
-                )
-                //saveReading(reading)
-            }
-        }
-
-        override fun onAccuracyChanged(sensor: Sensor, i: Int) {
-            //this field is for improve the precision and make low-effort if is needed
-        }
-    }
-
     // Obtener ubicación desde GPS
     private val locationService: LocationService = LocationService()
 
     private val updateGraphRunnable: Runnable = object : Runnable {
         override fun run() {
-            // Add one new data to each series
-            pointsPlotted++
-            seriesX.appendData(
-                DataPoint(pointsPlotted, accelerationCurrentValueX),
-                true,
-                maxDataPoints
-            )
-            seriesY.appendData(
-                DataPoint(pointsPlotted, accelerationCurrentValueY),
-                true,
-                maxDataPoints
-            )
-            seriesZ.appendData(
-                DataPoint(pointsPlotted, accelerationCurrentValueZ),
-                true,
-                maxDataPoints
-            )
+            lifecycleScope.launch(Dispatchers.IO) {
+                val firstData = database.accelReadingDao().getFirstData()
+                newPointGraphX = firstData.getOrNull(0)?.x
+                newPointGraphY = firstData.getOrNull(0)?.y
+                newPointGraphZ = firstData.getOrNull(0)?.z
 
-            // Auto rescaling viewport
-            viewportX.setMaxX(pointsPlotted)
-            viewportX.setMinX(kotlin.math.max(0.0, pointsPlotted - maxDataPoints))
 
-            // Reset data if necessary to remove invisible points
-            if (seriesX.highestValueX - seriesX.lowestValueX > maxDataPoints) {
-                seriesX.resetData(arrayOf())
-            }
-            if (seriesY.highestValueX - seriesY.lowestValueX > maxDataPoints) {
-                seriesY.resetData(arrayOf())
-            }
-            if (seriesZ.highestValueX - seriesZ.lowestValueX > maxDataPoints) {
-                seriesZ.resetData(arrayOf())
+                // Add one new data to each series
+                pointsPlotted++
+                if (newPointGraphX != null) {
+                    // Add one new data to seriesY if newPointGraphY is not null
+                    seriesX.appendData(
+                        DataPoint(pointsPlotted, newPointGraphX!!),
+                        true,
+                        maxDataPoints
+                    )
+                }
+                if (newPointGraphY != null) {
+                    // Add one new data to seriesY if newPointGraphY is not null
+                    seriesY.appendData(
+                        DataPoint(pointsPlotted, newPointGraphY!!),
+                        true,
+                        maxDataPoints
+                    )
+                }
+                if (newPointGraphZ != null) {
+                    // Add one new data to seriesY if newPointGraphY is not null
+                    seriesZ.appendData(
+                        DataPoint(pointsPlotted, newPointGraphZ!!),
+                        true,
+                        maxDataPoints
+                    )
+                }
+
+                withContext(Dispatchers.Main) {
+                    // Auto rescaling viewport
+                    viewportX.setMaxX(pointsPlotted)
+                    viewportX.setMinX(kotlin.math.max(0.0, pointsPlotted - maxDataPoints))
+
+                    // Reset data if necessary to remove invisible points
+                    if (seriesX.highestValueX - seriesX.lowestValueX > maxDataPoints) {
+                        seriesX.resetData(arrayOf())
+                    }
+                    if (seriesY.highestValueX - seriesY.lowestValueX > maxDataPoints) {
+                        seriesY.resetData(arrayOf())
+                    }
+                    if (seriesZ.highestValueX - seriesZ.lowestValueX > maxDataPoints) {
+                        seriesZ.resetData(arrayOf())
+                    }
+                }
             }
 
             // Exec this code 100 times per second
@@ -201,13 +180,14 @@ class MainActivity() : AppCompatActivity(), MainExecution {
     }
 
     constructor(parcel: Parcel) : this() {
-        accelerationCurrentValueX = parcel.readDouble()
-        accelerationCurrentValueY = parcel.readDouble()
-        accelerationCurrentValueZ = parcel.readDouble()
+        newPointGraphX = parcel.readDouble()
+        newPointGraphY = parcel.readDouble()
+        newPointGraphZ = parcel.readDouble()
         pointsPlotted = parcel.readDouble()
         deviceId = parcel.readString().toString()
     }
 
+    @SuppressLint("HardwareIds")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -218,7 +198,6 @@ class MainActivity() : AppCompatActivity(), MainExecution {
         database = AccelDatabase.getDatabase(this)
 
         lifecycleScope.launch(Dispatchers.IO) {
-            Log.d("Runnable", "Runnable Corriendo")
             // Borrar la base de datos al abrir la aplicación
             database.accelReadingDao().resetDatabase()
         }
@@ -228,16 +207,10 @@ class MainActivity() : AppCompatActivity(), MainExecution {
 
         askNotificationPermission()
         getToken()
-        //registerSensor()
 
         val intent = Intent(this, ForegroundService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Log.d("SDK_VERSIONForegroundService", Build.VERSION.SDK_INT.toString())
-            fun doSomething() {
-                // Función que deseas ejecutar desde ForegroundService
-                // Por ejemplo:
-                // actualizarUI()
-            }
             startForegroundService(intent)
         } else {
             Log.d("SDK_VERSIONService", Build.VERSION.SDK_INT.toString())
@@ -264,19 +237,6 @@ class MainActivity() : AppCompatActivity(), MainExecution {
                 handler.postDelayed(this, 1000)
             }
         }, 1000) // 1000 milisegundos = 1 segundo
-    }
-
-    private fun saveReading(reading: AccelEntity) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            Log.d("Runnable", "Runnable Corriendo")
-            // Aquí iría el código para insertar la lectura en la base de datos
-            // y para mantener el máximo de datos a 500
-            database.accelReadingDao().insertReading(reading)
-            // Después de cada inserción, asegurarse de no superar los 90000 registros.
-            // Actualmente hace 50 registros cada segundo y con un máximo de 90000 registros
-            // significa que registra 1800 segundos (30 min) en Local
-            database.accelReadingDao().keepMaxNumberOfData()
-        }
     }
 
     override fun getToken() {
@@ -345,17 +305,7 @@ class MainActivity() : AppCompatActivity(), MainExecution {
     // Método para manejar el evento de recepción de notificación
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onNotificationReceived(event: NotificationReceivedEvent) {
-        // Esto envía los datos cuando una notificación es recibida
-        //handler.postDelayed(sendDataRunnable, 0)
         Log.d(TAG, event.seismTime)
-        /*lifecycleScope.launch(Dispatchers.IO) {
-            val timestampFromServer = event.seismTime.toLong()
-            val firstData = database.accelReadingDao().getInitialData(timestampFromServer)
-            firebaseAccelDataRef.child("localData").setValue(firstData)
-            //val weaData = database.accelReadingDao().getAllReadings()
-            //firebaseAccelDataRef.child("timestamp").setValue(weaData)
-        }*/
-        //handler.postDelayed({handler.removeCallbacks(sendDataRunnable)}, 30000)
     }
 
     private fun initializeViews() {
@@ -363,7 +313,6 @@ class MainActivity() : AppCompatActivity(), MainExecution {
         btnSendData = findViewById(R.id.btnSendData)
         btnDeleteData = findViewById(R.id.btnDeleteData)
         progressBarSendData = findViewById(R.id.progressBarSendData)
-        progressBarSendData.max = maxSaveCount
         progressBarSendData.progress = 0
 
         btnSendData.setOnClickListener {
@@ -375,9 +324,9 @@ class MainActivity() : AppCompatActivity(), MainExecution {
         btnDeleteData.setOnClickListener {
             progressBarSendData.progress = 0
             // Borrar TODA la base de datos
-            //firebaseRef.reference.setValue(null)
+            firebaseRef.reference.setValue(null)
             // Borrar los datos de aceleración guardados desde el dispositivo
-            firebaseAccelDataRef.setValue(null)
+            //firebaseAccelDataRef.setValue(null)
             // Borrar los datos propios de TODOS los dispositivos
             //firebaseInfoDeviceRef.setValue(null)
         }
@@ -405,19 +354,7 @@ class MainActivity() : AppCompatActivity(), MainExecution {
         seriesZ.color = Color.BLUE
     }
 
-    override fun registerSensor() {
-        /*mSensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
-        mAccelerometer = mSensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)*/
-
-        // Calcular el intervalo de tiempo en milisegundos
-        //val intervalMillis = 20
-
-       /* mSensorManager?.registerListener(
-            sensorEventListener,
-            mAccelerometer,
-            intervalMillis * 1000 // Actualmente lee 50 datos por segundo
-        )*/
-    }
+    override fun registerSensor() {}
 
     override fun describeContents(): Int {
         TODO("Not yet implemented")
@@ -425,10 +362,6 @@ class MainActivity() : AppCompatActivity(), MainExecution {
 
     override fun writeToParcel(dest: Parcel, flags: Int) {
         TODO("Not yet implemented")
-    }
-
-    private fun unregisterSensor() {
-        mSensorManager?.unregisterListener(sensorEventListener)
     }
 
     private fun startUpdateGraphRunnable() {
@@ -441,21 +374,17 @@ class MainActivity() : AppCompatActivity(), MainExecution {
 
     override fun onResume() {
         super.onResume()
-        registerSensor()
         startUpdateGraphRunnable()
     }
 
     override fun onPause() {
         super.onPause()
-        //unregisterSensor()
         stopUpdateGraphRunnable()
     }
 
     override fun onDestroy() {
-        // Desregistra esta clase como suscriptor de EventBus
         EventBus.getDefault().unregister(this)
         super.onDestroy()
-        unregisterSensor()
         stopUpdateGraphRunnable()
     }
 

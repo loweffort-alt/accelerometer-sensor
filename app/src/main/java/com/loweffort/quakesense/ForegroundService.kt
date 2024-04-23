@@ -15,7 +15,6 @@ import android.os.IBinder
 import android.os.Handler
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.lifecycle.lifecycleScope
 import com.loweffort.quakesense.room.AccelDatabase
 import com.loweffort.quakesense.room.AccelEntity
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +32,7 @@ class ForegroundService : Service() {
     private var accelerationCurrentValueY: Double = 0.0
     private var accelerationCurrentValueZ: Double = 0.0
 
-    private val serviceScope = CoroutineScope(Dispatchers.Main)
+    private val serviceScope = CoroutineScope(Dispatchers.IO)
 
     private val sensorEventListener: SensorEventListener = object : SensorEventListener {
         override fun onSensorChanged(sensorEvent: SensorEvent) {
@@ -51,7 +50,7 @@ class ForegroundService : Service() {
                     y = accelerationCurrentValueY,
                     z = accelerationCurrentValueZ
                 )
-                Log.d(TAG, reading.toString())
+                //Log.d(TAG, reading.toString())
                 saveReading(reading)
             }
         }
@@ -64,7 +63,6 @@ class ForegroundService : Service() {
     private fun saveReading(reading: AccelEntity) {
         // Ejecutar el bloque de código dentro de una corrutina
         serviceScope.launch {
-            Log.d("Runnable", "Runnable Corriendo")
             database.accelReadingDao().insertReading(reading)
             database.accelReadingDao().keepMaxNumberOfData()
         }
@@ -80,14 +78,7 @@ class ForegroundService : Service() {
         handler = Handler() // Inicializar el handler aquí
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-
-        val mainActivityCntxt: Context? = SingletonContextProvider.getContext()
-        if (mainActivityCntxt == null) {
-            Log.e(TAG, "Context is null")
-            // Handle error if context is null
-            return
-        }
-        database = AccelDatabase.getDatabase(mainActivityCntxt)
+        database = AccelDatabase.getDatabase(applicationContext)
     }
     //TODO: Comprobar si la base de datos también es leida y escribida en segundo plano.
 
@@ -137,7 +128,7 @@ class ForegroundService : Service() {
             serviceScope.launch {
                 val firstData = database.accelReadingDao().getFirstData()
                 val numberData = database.accelReadingDao().getCount()
-                Log.d(TAG, "$numberData $firstData")
+                Log.d("DAO", "$numberData $firstData")
             }
             handler.postDelayed(this, 2000)
         }

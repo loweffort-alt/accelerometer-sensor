@@ -57,10 +57,12 @@ class MyFirebaseMessaginService : FirebaseMessagingService() {
         Log.d(TAG, "From: ${remoteMessage.from}")
 
         if (remoteMessage.data.isNotEmpty()) {
-            Log.d(TAG, "Message data payload: $seismTime")
-
             // Ejecutar el bloque de código dentro de una corrutina
             serviceScope.launch {
+                val currentTimeSeconds = System.currentTimeMillis() / 1000
+                val wea = database.accelReadingDao().getFirstData()
+                Log.d(TAG, "Server time: $seismTime | device time: $currentTimeSeconds | DB time: $wea")
+
                 val timestampFromServer = seismTime?.toLong()
 //                val timestampFromServer = 158.toLong()
                 val firstData = timestampFromServer?.let {
