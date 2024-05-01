@@ -15,12 +15,13 @@ import android.os.Parcelable
 import android.provider.Settings
 import android.util.Log
 import android.widget.Button
-import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
@@ -30,12 +31,16 @@ import com.jjoe64.graphview.Viewport
 import com.jjoe64.graphview.series.DataPoint
 import com.jjoe64.graphview.series.LineGraphSeries
 import com.loweffort.quakesense.room.AccelDatabase
+import com.loweffort.quakesense.room.AccelEntity
+import com.loweffort.quakesense.viewmodel.MainViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
+import java.text.SimpleDateFormat
+import java.util.Date
 
 interface MainExecution : Parcelable {
     fun getToken()
@@ -43,7 +48,6 @@ interface MainExecution : Parcelable {
 }
 
 class MainActivity() : AppCompatActivity(), MainExecution {
-
     // Config to show notifications:
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -80,12 +84,15 @@ class MainActivity() : AppCompatActivity(), MainExecution {
         }
     }
 
-    private lateinit var dataCounter: TextView
+    private lateinit var dataAmount: TextView
+    private lateinit var lastSism: TextView
+    private lateinit var firstData: TextView
+    private lateinit var lastData: TextView
+    private lateinit var recordTime: TextView
 
     //Buttons
     private lateinit var btnSendData: Button
     private lateinit var btnDeleteData: Button
-    private lateinit var progressBarSendData: ProgressBar
 
     private var newPointGraphX: Double? = 0.0
     private var newPointGraphY: Double? = 0.0
@@ -98,12 +105,8 @@ class MainActivity() : AppCompatActivity(), MainExecution {
     private val maxDataPoints = 100
 
     private lateinit var viewportX: Viewport
-    /*private lateinit var viewportY: Viewport
-    private lateinit var viewportZ: Viewport*/
 
     private lateinit var graphX: GraphView
-    /*private lateinit var graphY: GraphView
-    private lateinit var graphZ: GraphView*/
 
     private val handler = Handler()
 
@@ -119,6 +122,7 @@ class MainActivity() : AppCompatActivity(), MainExecution {
 
     // Obtener ubicación desde GPS
     private val locationService: LocationService = LocationService()
+    private var initialTime = 0
 
     private val updateGraphRunnable: Runnable = object : Runnable {
         override fun run() {
@@ -127,7 +131,6 @@ class MainActivity() : AppCompatActivity(), MainExecution {
                 newPointGraphX = firstData.getOrNull(0)?.x
                 newPointGraphY = firstData.getOrNull(0)?.y
                 newPointGraphZ = firstData.getOrNull(0)?.z
-
 
                 // Add one new data to each series
                 pointsPlotted++
@@ -187,6 +190,10 @@ class MainActivity() : AppCompatActivity(), MainExecution {
         deviceId = parcel.readString().toString()
     }
 
+    private lateinit var viewModel: MainViewModel
+    private lateinit var firstAccelerometerDataObserver: Observer<List<AccelEntity>>
+    private lateinit var lastAccelerometerDataObserver: Observer<List<AccelEntity>>
+
     @SuppressLint("HardwareIds")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -201,6 +208,33 @@ class MainActivity() : AppCompatActivity(), MainExecution {
             // Borrar la base de datos al abrir la aplicación
             database.accelReadingDao().resetDatabase()
         }
+
+        //*************************************************************
+
+        // Inicializar el ViewModel
+        viewModel = ViewModelProvider(this).get(MainViewModel::class.java)
+
+        // Inicializar el Observer para observar los cambios en los datos del acelerómetro
+        firstAccelerometerDataObserver = Observer { accelerometerData ->
+            // Actualizar la interfaz de usuario con los nuevos datos del acelerómetro
+            updateFirstDataUI(accelerometerData)
+        }
+
+        // Observar el LiveData en el ViewModel
+        viewModel.firstAccelerometerData.observe(this, firstAccelerometerDataObserver)
+
+        lastAccelerometerDataObserver = Observer { accelerometerData ->
+            // Actualizar la interfaz de usuario con los últimos datos del acelerómetro
+            updateLastDataUI(accelerometerData)
+        }
+
+        // Observar el LiveData para los últimos datos en el ViewModel
+        viewModel.lastAccelerometerData.observe(this, lastAccelerometerDataObserver)
+
+        // Llamar al método fetchFirstData() para cargar los primeros datos del acelerómetro
+        //viewModel.fetchFirstData()
+
+        //*************************************************************
 
         // Registra esta clase como un suscriptor de EventBus
         EventBus.getDefault().register(this)
@@ -222,6 +256,26 @@ class MainActivity() : AppCompatActivity(), MainExecution {
         updateTextEachSecond()
     }
 
+    private fun updateFirstDataUI(accelerometerData: List<AccelEntity>) {
+        if (accelerometerData.isNotEmpty()) {
+            val firstDataAccelerometer = accelerometerData[0]
+            val id = firstDataAccelerometer.id
+            val timestamp = firstDataAccelerometer.timestamp
+            firstData = findViewById(R.id.firstData)
+            firstData.text = "Newest Data: ID: $id, Timestamp: $timestamp"
+        }
+    }
+
+    private fun updateLastDataUI(accelerometerData: List<AccelEntity>) {
+        if (accelerometerData.isNotEmpty()) {
+            val firstDataAccelerometer = accelerometerData[0]
+            val id = firstDataAccelerometer.id
+            val timestamp = firstDataAccelerometer.timestamp
+            lastData = findViewById(R.id.lastData)
+            lastData.text = "Oldest Data: ID: $id, Timestamp: $timestamp"
+        }
+    }
+
     private fun updateTextEachSecond() {
         val handler = Handler()
         handler.postDelayed(object : Runnable {
@@ -231,7 +285,12 @@ class MainActivity() : AppCompatActivity(), MainExecution {
                     val dataAmount = database.accelReadingDao().getCount()
                     withContext(Dispatchers.Main) {
                         val showDataAmount = resources.getString(R.string.dataAmount, dataAmount)
-                        dataCounter.text = showDataAmount
+                        this@MainActivity.dataAmount.text = showDataAmount
+                    }
+                    initialTime += 1
+                    withContext(Dispatchers.Main) {
+                        val showRecordTime = resources.getString(R.string.recordTime, initialTime)
+                        this@MainActivity.recordTime.text = showRecordTime
                     }
                 }
                 handler.postDelayed(this, 1000)
@@ -306,14 +365,18 @@ class MainActivity() : AppCompatActivity(), MainExecution {
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onNotificationReceived(event: NotificationReceivedEvent) {
         Log.d(TAG, event.seismTime)
+        val epochTime = Date(event.seismTime.toLong() * 1000)
+        val formatDate = SimpleDateFormat("dd/MM/yyyy HH:mm:ss")
+        lastSism.text = getString(R.string.lastSism, formatDate.format(epochTime))
     }
 
     private fun initializeViews() {
-        dataCounter = findViewById(R.id.txt_accelX)
+        dataAmount = findViewById(R.id.dataAmount)
+        recordTime = findViewById(R.id.recordTime)
         btnSendData = findViewById(R.id.btnSendData)
         btnDeleteData = findViewById(R.id.btnDeleteData)
-        progressBarSendData = findViewById(R.id.progressBarSendData)
-        progressBarSendData.progress = 0
+        lastSism = findViewById(R.id.lastSism)
+        lastSism.text = "Last sism = No data"
 
         btnSendData.setOnClickListener {
             lifecycleScope.launch(Dispatchers.IO) {
@@ -322,7 +385,6 @@ class MainActivity() : AppCompatActivity(), MainExecution {
             }
         }
         btnDeleteData.setOnClickListener {
-            progressBarSendData.progress = 0
             // Borrar TODA la base de datos
             firebaseRef.reference.setValue(null)
             // Borrar los datos de aceleración guardados desde el dispositivo
@@ -386,6 +448,7 @@ class MainActivity() : AppCompatActivity(), MainExecution {
         EventBus.getDefault().unregister(this)
         super.onDestroy()
         stopUpdateGraphRunnable()
+        viewModel.firstAccelerometerData.removeObserver(firstAccelerometerDataObserver)
     }
 
     companion object CREATOR : Parcelable.Creator<MainActivity> {

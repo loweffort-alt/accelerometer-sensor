@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Accelerometer</string>
-    <string name="dataAmount">Cantidad de datos = %d</string>
+    <string name="dataAmount">Total data = %d</string>
+    <string name="recordTime">Recording time = %d sec</string>
+    <string name="lastSism">Last sism = %s</string>
+    <string name="frequency">Reg Frequency: 50 regs/sec</string>
+    <string name="lastData">Last data = %d</string>
+    <string name="firstData">First data = %d</string>
     <string name="axisX">Eje X</string>
     <string name="axisY">Eje Y</string>
     <string name="axisZ">Eje Z</string>

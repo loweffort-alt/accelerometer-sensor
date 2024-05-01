@@ -1,8 +1,10 @@
 package com.loweffort.quakesense.room
 
+import androidx.lifecycle.LiveData
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 import java.sql.Timestamp
 
 @Dao
@@ -20,6 +22,13 @@ interface AccelDao {
     @Query("SELECT * FROM accelEntity ORDER BY id DESC LIMIT 1")
     suspend fun getFirstData(): List<AccelEntity>
 
+    //*******************************************
+    // Opcionalmente, si deseas observar los cambios en la lista, puedes definir un método adicional
+    @Query("SELECT * FROM accelEntity ORDER BY id DESC LIMIT 1")
+    fun observeFirstData(): LiveData<List<AccelEntity>>
+    @Query("SELECT * FROM accelEntity ORDER BY id ASC LIMIT 1")
+    fun observeLastData(): LiveData<List<AccelEntity>>
+    //*******************************************
 
     //Almacena 90000 datos máximo. Estos datos se registran en mínimo 30 minutos.
     @Query("DELETE FROM accelEntity WHERE id NOT IN (SELECT id from accelEntity ORDER BY id DESC LIMIT 90000)")

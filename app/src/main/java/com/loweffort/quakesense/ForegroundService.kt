@@ -21,7 +21,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-
 class ForegroundService : Service() {
     private val FOREGROUND_SERVICE_ID = 101
     private lateinit var handler: Handler
