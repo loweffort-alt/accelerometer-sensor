@@ -89,6 +89,7 @@ class MainActivity() : AppCompatActivity(), MainExecution {
     private lateinit var firstData: TextView
     private lateinit var lastData: TextView
     private lateinit var recordTime: TextView
+    private lateinit var currentTime: TextView
 
     //Buttons
     private lateinit var btnSendData: Button
@@ -292,6 +293,11 @@ class MainActivity() : AppCompatActivity(), MainExecution {
                         val showRecordTime = resources.getString(R.string.recordTime, initialTime)
                         this@MainActivity.recordTime.text = showRecordTime
                     }
+                    withContext(Dispatchers.Main) {
+                        val epochTime = System.currentTimeMillis() / 1000
+                        val showRecordTime = resources.getString(R.string.currentTime, epochTime)
+                        this@MainActivity.currentTime.text = showRecordTime
+                    }
                 }
                 handler.postDelayed(this, 1000)
             }
@@ -375,6 +381,7 @@ class MainActivity() : AppCompatActivity(), MainExecution {
         recordTime = findViewById(R.id.recordTime)
         btnSendData = findViewById(R.id.btnSendData)
         btnDeleteData = findViewById(R.id.btnDeleteData)
+        currentTime = findViewById(R.id.currentTime)
         lastSism = findViewById(R.id.lastSism)
         lastSism.text = "Last sism = No data"
 

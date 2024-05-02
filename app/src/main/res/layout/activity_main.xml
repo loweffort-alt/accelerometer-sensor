@@ -102,6 +102,18 @@
         app:layout_constraintTop_toBottomOf="@+id/firstData" />
 
     <TextView
+        android:id="@+id/currentTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="5dp"
+        android:text="@string/currentTime"
+        android:textSize="16sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.505"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/lastData" />
+
+    <TextView
         android:id="@+id/firstData"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -123,7 +135,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/lastData" />
+        app:layout_constraintTop_toBottomOf="@+id/currentTime" />
 
     <ImageView
         android:id="@+id/logo"

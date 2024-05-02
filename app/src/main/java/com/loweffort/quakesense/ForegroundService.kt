@@ -49,21 +49,20 @@ class ForegroundService : Service() {
                     y = accelerationCurrentValueY,
                     z = accelerationCurrentValueZ
                 )
-                //Log.d(TAG, reading.toString())
-                saveReading(reading)
+                Log.d(TAG, reading.toString())
+                //saveReading(reading)
+                serviceScope.launch(Dispatchers.IO) {
+                    database.accelReadingDao().insertReading(reading)
+                    val random = database.accelReadingDao().getFirstData()
+                    val epochTime = System.currentTimeMillis() / 1000
+                    Log.d("RANDOM", "id:${random[0].id} db-time:${random[0].timestamp} | system-time:$epochTime")
+                    database.accelReadingDao().keepMaxNumberOfData()
+                }
             }
         }
 
         override fun onAccuracyChanged(sensor: Sensor, i: Int) {
             //this field is for improve the precision and make low-effort if is needed
-        }
-    }
-
-    private fun saveReading(reading: AccelEntity) {
-        // Ejecutar el bloque de código dentro de una corrutina
-        serviceScope.launch {
-            database.accelReadingDao().insertReading(reading)
-            database.accelReadingDao().keepMaxNumberOfData()
         }
     }
 

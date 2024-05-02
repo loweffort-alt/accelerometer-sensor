@@ -3,6 +3,7 @@
     <string name="dataAmount">Total data = %d</string>
     <string name="recordTime">Recording time = %d sec</string>
     <string name="lastSism">Last sism = %s</string>
+    <string name="currentTime">Current Time = %d</string>
     <string name="frequency">Reg Frequency: 50 regs/sec</string>
     <string name="lastData">Last data = %d</string>
     <string name="firstData">First data = %d</string>
