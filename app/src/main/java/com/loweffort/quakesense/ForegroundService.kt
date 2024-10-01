@@ -38,6 +38,7 @@ class ForegroundService : Service() {
             val x: Float = sensorEvent.values[0]
             val y: Float = sensorEvent.values[1]
             val z: Float = sensorEvent.values[2] - 9.81f
+            val systemTimeOnSensor: Long = System.currentTimeMillis()
 
             accelerationCurrentValueX = String.format("%.5f", x).toDouble()
             accelerationCurrentValueY = String.format("%.5f", y).toDouble()
@@ -47,7 +48,8 @@ class ForegroundService : Service() {
                 val reading = AccelEntity(
                     x = accelerationCurrentValueX,
                     y = accelerationCurrentValueY,
-                    z = accelerationCurrentValueZ
+                    z = accelerationCurrentValueZ,
+                    systemTimeOnSensor = systemTimeOnSensor,
                 )
                 Log.d(TAG, reading.toString())
                 //saveReading(reading)

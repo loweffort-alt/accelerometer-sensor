@@ -9,5 +9,6 @@ data class AccelEntity(
     val x: Double,
     val y: Double,
     val z: Double,
-    val timestamp: Long = System.currentTimeMillis() / 1000
+    val systemTimeOnSensor: Long,
+    val timestamp: Long = System.currentTimeMillis()
 )

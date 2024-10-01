@@ -139,14 +139,14 @@
 
     <ImageView
         android:id="@+id/logo"
-        android:layout_width="319dp"
+        android:layout_width="wrap_content"
         android:layout_height="46dp"
         android:background="#226CAA"
         android:contentDescription="@string/logo"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/img" />
+        app:srcCompat="@drawable/logoapk" />
 
     <Button
         android:id="@+id/btnDeleteData"

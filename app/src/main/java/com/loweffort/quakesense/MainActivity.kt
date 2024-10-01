@@ -179,7 +179,7 @@ class MainActivity() : AppCompatActivity(), MainExecution {
             }
 
             // Exec this code 100 times per second
-            handler.postDelayed(this, 100)
+            handler.postDelayed(this, 50)
         }
     }
 
@@ -294,7 +294,7 @@ class MainActivity() : AppCompatActivity(), MainExecution {
                         this@MainActivity.recordTime.text = showRecordTime
                     }
                     withContext(Dispatchers.Main) {
-                        val epochTime = System.currentTimeMillis() / 1000
+                        val epochTime = System.currentTimeMillis()
                         val showRecordTime = resources.getString(R.string.currentTime, epochTime)
                         this@MainActivity.currentTime.text = showRecordTime
                     }

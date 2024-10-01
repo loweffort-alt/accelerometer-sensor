@@ -31,7 +31,8 @@ interface AccelDao {
     //*******************************************
 
     //Almacena 90000 datos máximo. Estos datos se registran en mínimo 30 minutos.
-    @Query("DELETE FROM accelEntity WHERE id NOT IN (SELECT id from accelEntity ORDER BY id DESC LIMIT 90000)")
+    //@Query("DELETE FROM accelEntity WHERE id NOT IN (SELECT id from accelEntity ORDER BY id DESC LIMIT 90000)")
+    @Query("DELETE FROM accelEntity WHERE timestamp < (SELECT MIN(timestamp) FROM (SELECT timestamp FROM accelEntity ORDER BY timestamp DESC LIMIT 90000))")
     suspend fun keepMaxNumberOfData()
 
     //Cuando abra la app, necesito borrar los datos. (En un futuro, cuando abra la app necesito
